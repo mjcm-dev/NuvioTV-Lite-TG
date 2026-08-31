@@ -79,12 +79,8 @@ internal fun PlayerRuntimeController.updateMediaSessionMetadata() {
                 player.replaceMediaItem(player.currentMediaItemIndex, updated)
             } else {
                 // No current MediaItem yet (e.g. player just built, source not set).
-                // Set a placeholder MediaItem so the session advertises metadata immediately.
-                val placeholder = androidx.media3.common.MediaItem.Builder()
-                    .apply { mediaId?.let(::setMediaId) }
-                    .setMediaMetadata(metadata)
-                    .build()
-                player.setMediaItem(placeholder)
+                // Avoid injecting a placeholder item without URI; Media3 validates this.
+                Log.d(PlayerRuntimeController.TAG, "MediaSession metadata deferred: player has no MediaItem yet")
             }
         }
         Log.d(

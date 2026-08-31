@@ -12,6 +12,7 @@ import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 import java.io.File
 import java.io.IOException
+import java.io.InterruptedIOException
 import java.io.RandomAccessFile
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
@@ -146,7 +147,12 @@ class TelegramDataSource private constructor(
         requestLinearDownload(force = true)
 
         val filePath = waitForFile(fileId, fileInfo.localPath)
-            ?: throw IOException("File not available on disk for fileId=$fileId")
+            ?: run {
+                if (Thread.currentThread().isInterrupted) {
+                    throw InterruptedIOException("waitForFile interrupted for fileId=$fileId")
+                }
+                throw IOException("File not available on disk for fileId=$fileId")
+            }
 
         if (currentFile?.absolutePath != filePath) {
             raf?.close()
@@ -236,7 +242,12 @@ class TelegramDataSource private constructor(
                 deadline = System.currentTimeMillis() + READ_TIMEOUT_MS
             }
 
-            Thread.sleep(POLL_DATA_MS)
+            try {
+                Thread.sleep(POLL_DATA_MS)
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+                throw InterruptedIOException("read interrupted for fileId=$fileId")
+            }
         }
     }
 
@@ -447,19 +458,31 @@ class TelegramDataSource private constructor(
 
         val deadline = System.currentTimeMillis() + FILE_APPEAR_TIMEOUT_MS
         while (System.currentTimeMillis() < deadline) {
+            if (Thread.currentThread().isInterrupted) {
+                Log.i(TAG, "waitForFile interrupted before query fileId=$fileId")
+                return null
+            }
             val path = runBlocking {
                 try {
                     val file = clientManager.sendRequest(
                         TdApi.GetFile(fileId)
                     ) as? TdApi.File
                     file?.local?.path?.takeIf { it.isNotEmpty() }
-                } catch (_: Exception) { null }
+                } catch (_: Exception) {
+                    null
+                }
             }
             if (path != null) {
                 val f = File(path)
                 if (f.exists() && f.canRead()) return path
             }
-            Thread.sleep(500L)
+            try {
+                Thread.sleep(500L)
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+                Log.i(TAG, "waitForFile interrupted during sleep fileId=$fileId")
+                return null
+            }
         }
         Log.w(TAG, "waitForFile timed out fileId=$fileId")
         return null

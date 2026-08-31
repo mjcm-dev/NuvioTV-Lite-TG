@@ -1,6 +1,7 @@
 package com.nuvio.tv.ui.screens.stream
 
 import android.content.Context
+import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -134,7 +135,22 @@ class StreamScreenViewModel @Inject constructor(
     private val manualSelection: Boolean = savedStateHandle.get<String>("manualSelection")
         ?.toBooleanStrictOrNull()
         ?: false
-    private val streamCacheKey: String = "${contentType.lowercase()}|$videoId"
+    private val streamCacheKey: String = buildPrimaryStreamCacheKey(
+        contentType = contentType,
+        videoId = videoId,
+        contentId = contentId,
+        season = season,
+        episode = episode
+    )
+    private val streamCacheKeyCandidates: List<String> by lazy {
+        buildStreamCacheKeyCandidates(
+            contentType = contentType,
+            videoId = videoId,
+            contentId = contentId,
+            season = season,
+            episode = episode
+        )
+    }
 
     private val _uiState = MutableStateFlow(
         StreamScreenUiState(
@@ -179,7 +195,12 @@ class StreamScreenViewModel @Inject constructor(
         preferredUrl: String?
     ): List<Stream> {
         if (preferredUrl.isNullOrBlank()) return streams
-        val preferred = streams.filter { it.getStreamUrl() == preferredUrl }
+        val preferred = streams.filter { candidate ->
+            streamUrlMatchesPreferred(
+                candidateUrl = candidate.getStreamUrl(),
+                preferredUrl = preferredUrl
+            )
+        }
         if (preferred.isEmpty()) return streams
         return preferred + streams.filterNot { candidate ->
             preferred.any { it.stableKey() == candidate.stableKey() }
@@ -420,8 +441,7 @@ class StreamScreenViewModel @Inject constructor(
             }
 
             if (!autoPlayHandledForSession && playerSettings.streamReuseLastLinkEnabled) {
-                val cached = streamLinkCacheDataStore.getValid(
-                    contentKey = streamCacheKey,
+                val cached = getValidCachedStream(
                     maxAgeMs = playerSettings.streamReuseLastLinkCacheHours * 60L * 60L * 1000L
                 )
                 if (cached != null) {
@@ -513,7 +533,12 @@ class StreamScreenViewModel @Inject constructor(
                 }
 
                 val allStreams = mergedAddonStreams.flatMap { it.streams }
-                val preferredStreams = allStreams.filter { it.getStreamUrl() == preferredResumeStreamUrl }
+                val preferredStreams = allStreams.filter { stream ->
+                    streamUrlMatchesPreferred(
+                        candidateUrl = stream.getStreamUrl(),
+                        preferredUrl = preferredResumeStreamUrl
+                    )
+                }
                 if (preferredResumeStreamUrl != null) {
                     val sample = allStreams.take(6).mapNotNull { it.getStreamUrl() }
                     Log.d(
@@ -1171,13 +1196,26 @@ class StreamScreenViewModel @Inject constructor(
             }
         }
 
-        val cache = streamLinkCacheDataStore.getValid(
-            contentKey = streamCacheKey,
-            maxAgeMs = PREFERRED_STREAM_CACHE_FALLBACK_MS
-        )
+        val cache = getValidCachedStream(maxAgeMs = PREFERRED_STREAM_CACHE_FALLBACK_MS)
         val cacheUrl = cache?.url?.takeIf { it.isNotBlank() }
         Log.d(TAG, "Preferred resume source from cache: ${cacheUrl ?: "<none>"}")
         return cacheUrl
+    }
+
+    private suspend fun getValidCachedStream(maxAgeMs: Long): com.nuvio.tv.data.local.CachedStreamLink? {
+        for (candidateKey in streamCacheKeyCandidates) {
+            val cached = streamLinkCacheDataStore.getValid(
+                contentKey = candidateKey,
+                maxAgeMs = maxAgeMs
+            )
+            if (cached != null) {
+                if (candidateKey != streamCacheKey) {
+                    Log.d(TAG, "Reuse-last-link cache hit via fallback key=$candidateKey")
+                }
+                return cached
+            }
+        }
+        return null
     }
 
     suspend fun resolveStreamForPlayback(stream: Stream): StreamPlaybackInfo? {
@@ -1867,6 +1905,102 @@ class StreamScreenViewModel @Inject constructor(
         }
     }
 
+}
+
+private fun buildStreamCacheKeyCandidates(
+    contentType: String,
+    videoId: String,
+    contentId: String?,
+    season: Int?,
+    episode: Int?
+): List<String> {
+    val primaryKey = buildPrimaryStreamCacheKey(
+        contentType = contentType,
+        videoId = videoId,
+        contentId = contentId,
+        season = season,
+        episode = episode
+    )
+    val normalizedType = contentType.lowercase().trim()
+    val keys = LinkedHashSet<String>()
+    if (primaryKey.isNotBlank()) {
+        keys += primaryKey
+    }
+    if (normalizedType.isBlank()) return keys.toList()
+
+    val normalizedVideoId = videoId.trim()
+    if (normalizedVideoId.isNotBlank()) {
+        keys += "$normalizedType|$normalizedVideoId"
+    }
+
+    val normalizedContentId = contentId?.trim().orEmpty()
+    if (normalizedContentId.isNotBlank()) {
+        keys += "$normalizedType|$normalizedContentId"
+        if (season != null && episode != null) {
+            keys += "$normalizedType|$normalizedContentId:$season:$episode"
+        }
+    }
+
+    if (normalizedVideoId.contains(':')) {
+        val parentFromVideoId = normalizedVideoId.substringBefore(':').trim()
+        if (parentFromVideoId.isNotBlank()) {
+            keys += "$normalizedType|$parentFromVideoId"
+            if (season != null && episode != null) {
+                keys += "$normalizedType|$parentFromVideoId:$season:$episode"
+            }
+        }
+    }
+
+    return keys.toList()
+}
+
+private fun streamUrlMatchesPreferred(candidateUrl: String?, preferredUrl: String?): Boolean {
+    if (candidateUrl.isNullOrBlank() || preferredUrl.isNullOrBlank()) return false
+    if (candidateUrl == preferredUrl) return true
+
+    val preferredTelegramScope = telegramScopeKey(preferredUrl)
+    val candidateTelegramScope = telegramScopeKey(candidateUrl)
+    if (preferredTelegramScope != null && preferredTelegramScope == candidateTelegramScope) {
+        return true
+    }
+
+    return false
+}
+
+private fun telegramScopeKey(url: String): String? {
+    return runCatching {
+        val uri = Uri.parse(url)
+        val segments = uri.pathSegments
+        if (segments.size < 4) return null
+        if (!segments[0].equals("tg", ignoreCase = true)) return null
+        val chatId = segments[1].trim()
+        val messageId = segments[2].trim()
+        if (chatId.isBlank() || messageId.isBlank()) return null
+        "tg|$chatId|$messageId"
+    }.getOrNull()
+}
+
+private fun buildPrimaryStreamCacheKey(
+    contentType: String,
+    videoId: String,
+    contentId: String?,
+    season: Int?,
+    episode: Int?
+): String {
+    val normalizedType = contentType.lowercase().trim()
+    val normalizedVideoId = videoId.trim()
+    val normalizedContentId = contentId?.trim().orEmpty()
+    if (normalizedType.isBlank()) return normalizedVideoId
+
+    val scopedEpisodeKey = if (season != null && episode != null && normalizedContentId.isNotBlank()) {
+        "$normalizedType|$normalizedContentId:$season:$episode"
+    } else {
+        ""
+    }
+    if (scopedEpisodeKey.isNotBlank()) return scopedEpisodeKey
+
+    if (normalizedContentId.isNotBlank()) return "$normalizedType|$normalizedContentId"
+    return "$normalizedType|$normalizedVideoId"
 }
 
 private fun Stream.badgeMergeKey(): String {
