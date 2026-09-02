@@ -634,6 +634,9 @@
     <string name="telegram_code_placeholder">Code</string>
     <string name="telegram_password_prompt">Enter your two-step verification password</string>
     <string name="telegram_password_placeholder">Password</string>
+    <string name="telegram_search_group_title">Telegram search</string>
+    <string name="telegram_search_channel_context_title">Use channel title for series match</string>
+    <string name="telegram_search_channel_context_subtitle">When filenames do not include the series title, match episodes using channel title + season/episode markers.</string>
     <string name="action_close">Close</string>
 
     <string name="supporters_contributors_title">Support Nuvio</string>

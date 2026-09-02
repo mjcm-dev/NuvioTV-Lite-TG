@@ -1168,6 +1168,7 @@ private fun StreamCard(
     val unknownStreamLabel = stringResource(R.string.stream_unknown)
     val streamName = remember(stream, unknownStreamLabel) { stream.getDisplayNameOrNull() ?: unknownStreamLabel }
     val streamDescription = remember(stream) { stream.getDisplayDescription() }
+    val streamFileName = remember(stream) { stream.behaviorHints?.filename?.trim().orEmpty() }
     val preferredPrefix = stringResource(R.string.cw_resume)
     val effectiveStreamName = remember(streamName, isPreferredResumeStream, preferredPrefix) {
         if (isPreferredResumeStream) "$preferredPrefix • $streamName" else streamName
@@ -1258,6 +1259,17 @@ private fun StreamCard(
                             color = NuvioTheme.extendedColors.textSecondary
                         )
                     }
+                }
+
+                if (streamFileName.isNotBlank() &&
+                    !streamFileName.equals(streamName, ignoreCase = true) &&
+                    !streamFileName.equals(streamDescription, ignoreCase = true)
+                ) {
+                    Text(
+                        text = streamFileName,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = NuvioTheme.extendedColors.textTertiary
+                    )
                 }
 
                 if (hasBadges && badgePlacement == StreamBadgePlacement.BOTTOM) {

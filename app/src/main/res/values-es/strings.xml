@@ -1086,6 +1086,9 @@
     <string name="telegram_code_placeholder">Código</string>
     <string name="telegram_password_prompt">Introduce tu contraseña de verificación en dos pasos</string>
     <string name="telegram_password_placeholder">Contraseña</string>
+    <string name="telegram_search_group_title">Búsqueda en Telegram</string>
+    <string name="telegram_search_channel_context_title">Usar título del canal para series</string>
+    <string name="telegram_search_channel_context_subtitle">Cuando el nombre del archivo no incluya el título de la serie, empareja episodios usando título del canal + marcadores de temporada/episodio.</string>
     <string name="advanced_clear_safe_storage">Liberar almacenamiento de la app (mantener cuenta)</string>
     <string name="advanced_clear_safe_storage_subtitle">Limpia la caché temporal y los archivos de descarga de Telegram, manteniendo addons, cuenta y sesión vinculada de Telegram</string>
     <string name="advanced_clear_safe_storage_done">Almacenamiento liberado</string>

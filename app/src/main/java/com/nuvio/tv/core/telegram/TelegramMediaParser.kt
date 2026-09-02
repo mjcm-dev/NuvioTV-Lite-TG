@@ -33,6 +33,10 @@ object TelegramMediaParser {
         Regex("""(?:^|[^A-Za-z0-9])T(\d{1,2})[\s._-]*E(\d{1,4})(?![0-9])""", RegexOption.IGNORE_CASE)
     )
 
+    private val EPISODE_ONLY_PATTERNS = listOf(
+        Regex("""(?:^|[^A-Za-z0-9])(?:E|Ep|Episodio|Cap|Capitulo|Capítulo)[\s._-]{0,3}(\d{1,4})(?![0-9])""", RegexOption.IGNORE_CASE)
+    )
+
     private val QUALITY_PATTERN =
         Regex("""(?<![0-9A-Za-z])(2160|1080|720|480|360)[pi](?![0-9A-Za-z])""", RegexOption.IGNORE_CASE)
 
@@ -66,13 +70,30 @@ object TelegramMediaParser {
         var episode: Int? = null
         var titleSource = withoutExtension
 
-        if (serMatch != null && serMatch.range.first > 0) {
+        if (serMatch != null) {
             val s = serMatch.groupValues[1].toIntOrNull()?.takeIf { it in 1..MAX_SEASON }
             val e = serMatch.groupValues[2].toIntOrNull()?.takeIf { it in 1..MAX_EPISODE }
             if (s != null && e != null) {
                 season = s
                 episode = e
-                titleSource = withoutExtension.substring(0, serMatch.range.first)
+                titleSource = if (serMatch.range.first > 0) {
+                    withoutExtension.substring(0, serMatch.range.first)
+                } else {
+                    withoutExtension
+                        .substring(serMatch.range.last + 1)
+                        .trimStart(' ', '-', '_', '.', ':', '[', ']', '(', ')')
+                        .ifBlank { withoutExtension }
+                }
+            }
+        } else {
+            val epMatch = EPISODE_ONLY_PATTERNS.firstNotNullOfOrNull { it.find(withoutExtension) }
+            val ep = epMatch?.groupValues?.getOrNull(1)?.toIntOrNull()?.takeIf { it in 1..MAX_EPISODE }
+            if (ep != null) {
+                episode = ep
+                val cutAt = epMatch.range.first
+                if (cutAt > 0) {
+                    titleSource = withoutExtension.substring(0, cutAt)
+                }
             }
         }
 

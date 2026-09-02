@@ -830,7 +830,7 @@ class StreamRepositoryImpl @Inject constructor(
                 telegramRepository.chatTitle(result.chatId)
             }.getOrNull()
             Stream(
-                name = TELEGRAM_ADDON_NAME,
+                name = result.fileName,
                 title = result.fileName,
                 description = listOfNotNull(chatTitle, formatBytesShort(result.sizeBytes))
                     .joinToString(" • "),
@@ -841,7 +841,15 @@ class StreamRepositoryImpl @Inject constructor(
                 infoHash = null,
                 fileIdx = null,
                 externalUrl = null,
-                behaviorHints = null,
+                behaviorHints = StreamBehaviorHints(
+                    notWebReady = null,
+                    bingeGroup = null,
+                    countryWhitelist = null,
+                    proxyHeaders = null,
+                    videoHash = null,
+                    videoSize = result.sizeBytes,
+                    filename = result.fileName
+                ),
                 addonName = TELEGRAM_ADDON_NAME,
                 addonLogo = null,
                 quality = result.quality,

@@ -56,6 +56,8 @@ import androidx.tv.material3.Text
 import com.nuvio.tv.R
 import com.nuvio.tv.core.qr.QrCodeGenerator
 import com.nuvio.tv.core.telegram.TelegramAuthState
+import com.nuvio.tv.ui.screens.settings.SettingsGroupCard
+import com.nuvio.tv.ui.screens.settings.SettingsToggleRow
 
 private val TgPaneBackground = Color.White.copy(alpha = 0.022f)
 private val TgPaneBorder = Color.White.copy(alpha = 0.07f)
@@ -66,6 +68,7 @@ fun TelegramAuthScreen(
     viewModel: TelegramAuthViewModel = hiltViewModel()
 ) {
     val authState by viewModel.authState.collectAsState()
+    val allowChannelContextSeriesMatch by viewModel.allowChannelContextSeriesMatch.collectAsState()
 
     BackHandler { onBackPress() }
 
@@ -120,6 +123,21 @@ fun TelegramAuthScreen(
 
                 is TelegramAuthState.Error -> StatusText(
                     stringResource(R.string.telegram_error_generic, state.message)
+                )
+            }
+
+            Spacer(Modifier.height(20.dp))
+            SettingsGroupCard(
+                modifier = Modifier.fillMaxWidth(),
+                title = stringResource(R.string.telegram_search_group_title)
+            ) {
+                SettingsToggleRow(
+                    title = stringResource(R.string.telegram_search_channel_context_title),
+                    subtitle = stringResource(R.string.telegram_search_channel_context_subtitle),
+                    checked = allowChannelContextSeriesMatch,
+                    onToggle = {
+                        viewModel.setAllowChannelContextSeriesMatch(!allowChannelContextSeriesMatch)
+                    }
                 )
             }
 
