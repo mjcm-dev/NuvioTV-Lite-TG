@@ -134,6 +134,104 @@ internal val LANGUAGE_OVERRIDES = mapOf(
     "fil" to "tl"
 )
 
+internal val LANGUAGE_NAME_ALIASES = mapOf(
+    "afrikaans" to "af",
+    "albanian" to "sq",
+    "amharic" to "am",
+    "arabic" to "ar",
+    "armenian" to "hy",
+    "azerbaijani" to "az",
+    "basque" to "eu",
+    "belarusian" to "be",
+    "bengali" to "bn",
+    "bosnian" to "bs",
+    "bulgarian" to "bg",
+    "burmese" to "my",
+    "catalan" to "ca",
+    "chinese" to "zh",
+    "mandarin" to "zh",
+    "croatian" to "hr",
+    "czech" to "cs",
+    "danish" to "da",
+    "dutch" to "nl",
+    "english" to "en",
+    "estonian" to "et",
+    "filipino" to "tl",
+    "finnish" to "fi",
+    "french" to "fr",
+    "galician" to "gl",
+    "georgian" to "ka",
+    "german" to "de",
+    "greek" to "el",
+    "gujarati" to "gu",
+    "hebrew" to "he",
+    "hindi" to "hi",
+    "hungarian" to "hu",
+    "icelandic" to "is",
+    "indonesian" to "id",
+    "irish" to "ga",
+    "italian" to "it",
+    "japanese" to "ja",
+    "kannada" to "kn",
+    "kazakh" to "kk",
+    "khmer" to "km",
+    "korean" to "ko",
+    "lao" to "lo",
+    "latvian" to "lv",
+    "lithuanian" to "lt",
+    "macedonian" to "mk",
+    "malay" to "ms",
+    "malayalam" to "ml",
+    "maltese" to "mt",
+    "marathi" to "mr",
+    "mongolian" to "mn",
+    "nepali" to "ne",
+    "norwegian" to "no",
+    "persian" to "fa",
+    "polish" to "pl",
+    "portuguese" to "pt",
+    "punjabi" to "pa",
+    "romanian" to "ro",
+    "russian" to "ru",
+    "serbian" to "sr",
+    "sinhala" to "si",
+    "slovak" to "sk",
+    "slovenian" to "sl",
+    "spanish" to "es",
+    "swahili" to "sw",
+    "swedish" to "sv",
+    "tamil" to "ta",
+    "telugu" to "te",
+    "thai" to "th",
+    "turkish" to "tr",
+    "ukrainian" to "uk",
+    "urdu" to "ur",
+    "uzbek" to "uz",
+    "vietnamese" to "vi",
+    "welsh" to "cy",
+    "zulu" to "zu"
+)
+
+// Longest-first once, at class-init: the scan below runs per subtitle and per audio track, and an
+// addon can answer with hundreds of subtitles.
+private val LANGUAGE_NAME_ALIASES_BY_LENGTH = LANGUAGE_NAME_ALIASES.entries
+    .sortedByDescending { it.key.length }
+
+private val WHITESPACE_RUN = Regex("\\s+")
+
+internal fun resolveLanguageNameAlias(tokenized: String): String? {
+    if (tokenized.isBlank()) return null
+    LANGUAGE_NAME_ALIASES[tokenized]?.let { return it }
+    return LANGUAGE_NAME_ALIASES_BY_LENGTH
+        .firstOrNull { (name, _) ->
+            tokenized == name ||
+                tokenized.startsWith("$name ") ||
+                tokenized.endsWith(" $name") ||
+                tokenized.contains(" $name ")
+        }
+        ?.value
+}
+
 fun languageCodeToName(code: String): String {
     val lowerCode = code.lowercase()
     if (lowerCode == "none") return "None"
@@ -141,7 +239,16 @@ fun languageCodeToName(code: String): String {
         return "Unknown"
     }
     LANGUAGE_DISPLAY_OVERRIDES[lowerCode]?.let { return it }
-    val bcp47 = LANGUAGE_OVERRIDES[lowerCode] ?: lowerCode
+    val tokenized = lowerCode
+        .replace('_', ' ')
+        .replace('-', ' ')
+        .replace('.', ' ')
+        .replace('/', ' ')
+        .replace(WHITESPACE_RUN, " ")
+        .trim()
+    val bcp47 = LANGUAGE_OVERRIDES[lowerCode]
+        ?: resolveLanguageNameAlias(tokenized)
+        ?: lowerCode.replace('_', '-')
     LANGUAGE_DISPLAY_OVERRIDES[bcp47]?.let { return it }
     return try {
         val locale = Locale.forLanguageTag(bcp47)

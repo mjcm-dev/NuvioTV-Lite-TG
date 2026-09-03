@@ -196,7 +196,6 @@ internal fun PlayerRuntimeController.initializePlayer(
             effectiveBackBufferDurationMs = 0
             currentBitrateAwareLoadControl = null
             configuredBackBufferMs = 0
-            _uiState.update { it.copy(playerStatsHudButtonAvailable = it.playerStatsHudEnabled) }
 
             val playerSettings = playerSettingsDataStore.playerSettings.first()
             currentPlayerSettingsForReport = playerSettings
@@ -533,33 +532,36 @@ internal fun PlayerRuntimeController.initializePlayer(
                     budgetBytes = budgetBytes,
                     allocator = allocator
                 ).also { currentBitrateAwareLoadControl = it }
-            } else if (com.nuvio.tv.core.build.AppFeaturePolicy.liteMode || MemoryBudget.isLowRamTier) {
-                val isTelegramLocalhost = url.safeHost() == "127.0.0.1"
+            } else if (url.safeHost() == "127.0.0.1") {
+                effectiveBackBufferDurationMs = 2_000
+                currentBitrateAwareLoadControl = null
+                Log.i(
+                    PlayerRuntimeController.TAG,
+                    "BUFFER_GATE: engine=exo-telegram; DefaultLoadControl (32MB/90s/2s back) host=${url.safeHost()}"
+                )
+                DefaultLoadControl.Builder()
+                    .setTargetBufferBytes(32 * 1024 * 1024)
+                    .setBufferDurationsMs(15_000, 90_000, 2_000, 3_000)
+                    .setPrioritizeTimeOverSizeThresholds(true)
+                    .setBackBuffer(2_000, /* retainBackBufferFromKeyframe = */ true)
+                    .build()
+            } else if (MemoryBudget.isLowRamTier) {
+                // Byte cap is the device heap budget, not a flat number: a flat 48MB is 5s
+                // of an 80 Mbps remux, so the cap fired before minBufferMs and playback ran
+                // on a ~4s buffer.
                 effectiveBackBufferDurationMs = 5_000
                 currentBitrateAwareLoadControl = null
-                if (isTelegramLocalhost) {
-                    Log.i(
-                        PlayerRuntimeController.TAG,
-                        "BUFFER_GATE: engine=exo-telegram; DefaultLoadControl (32MB/90s/2s back) host=${url.safeHost()}"
-                    )
-                    DefaultLoadControl.Builder()
-                        .setTargetBufferBytes(32 * 1024 * 1024)
-                        .setBufferDurationsMs(15_000, 90_000, 2_000, 3_000)
-                        .setPrioritizeTimeOverSizeThresholds(true)
-                        .setBackBuffer(2_000, /* retainBackBufferFromKeyframe = */ true)
-                        .build()
-                } else {
-                    Log.i(
-                        PlayerRuntimeController.TAG,
-                        "BUFFER_GATE: engine=exo-lite; DefaultLoadControl (48MB/20s/5s back) host=${url.safeHost()}"
-                    )
-                    DefaultLoadControl.Builder()
-                        .setTargetBufferBytes(48 * 1024 * 1024)
-                        .setBufferDurationsMs(10_000, 20_000, 2_500, 5_000)
-                        .setPrioritizeTimeOverSizeThresholds(false)
-                        .setBackBuffer(5_000, /* retainBackBufferFromKeyframe = */ true)
-                        .build()
-                }
+                Log.i(
+                    PlayerRuntimeController.TAG,
+                    "BUFFER_GATE: engine=exo-lowram; DefaultLoadControl " +
+                            "(${MemoryBudget.budgetMb}MB/15-40s/5s back) host=${url.safeHost()}"
+                )
+                DefaultLoadControl.Builder()
+                    .setTargetBufferBytes(MemoryBudget.budgetMb * 1024 * 1024)
+                    .setBufferDurationsMs(15_000, 40_000, 2_500, 5_000)
+                    .setPrioritizeTimeOverSizeThresholds(false)
+                    .setBackBuffer(5_000, /* retainBackBufferFromKeyframe = */ true)
+                    .build()
             } else {
                 // Stock LoadControl: DefaultLoadControl configured with 1.5s back buffer so 1s rewind doesn't clear buffer.
                 effectiveBackBufferDurationMs = 1_500

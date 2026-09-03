@@ -119,14 +119,14 @@ class SubtitleCharsetDetectorTest {
     }
 
     @Test
-    fun repairsDoubleEncodedHebrewUtf8WithoutLanguageHint() {
+    fun repairsDoubleEncodedHebrewUtf8ThroughTheHotPathGuard() {
         val gibberishLatin1Utf8Text = "46\n00:04:42,243 --> 00:04:45,387\næåäï, äçæøðå àú\n!äôðèåí. -ìà"
 
-        val repaired = SubtitleCharsetDetector.repairDoubleEncodedUtf8IfNeeded(gibberishLatin1Utf8Text)
+        val repaired = SubtitleCharsetDetector.repairDoubleEncodedUtf8IfNeeded(gibberishLatin1Utf8Text, "heb")
         assertTrue("Expected repaired Hebrew text, but got: $repaired", repaired.contains("זוהן, החזרנו את"))
 
         val clean = "Nothing to repair here."
-        assertTrue(SubtitleCharsetDetector.repairDoubleEncodedUtf8IfNeeded(clean) === clean)
+        assertTrue(SubtitleCharsetDetector.repairDoubleEncodedUtf8IfNeeded(clean, "heb") === clean)
     }
 
     @Test
@@ -154,8 +154,18 @@ class SubtitleCharsetDetectorTest {
         val ptText = "Eles não têm medo de nada. Não vamos desistir, eles estão lá. Você não sabe o que eles têm."
         val rawBytes = ptText.toByteArray(Charsets.UTF_8)
 
-        val decoded = SubtitleCharsetDetector.decode(rawBytes, languageHint = "pt-pt")
+        val decoded = SubtitleCharsetDetector.decode(rawBytes, languageHint = "por")
         assertEquals(ptText, decoded)
+    }
+
+    @Test
+    fun preservesTranslatedRomanianUtf8SubtitlesWithRussianLanguageHint() {
+        val roText = "Când ajunge la gară, își dă seama că a uitat pâinea și apa în mașină. În sfârșit, pleacă spre casă."
+        val rawBytes = roText.toByteArray(Charsets.UTF_8)
+
+        // Simulates issue #3315: Subtitle was translated from Russian to Romanian, but player track language metadata is still "rus"
+        val decoded = SubtitleCharsetDetector.decode(rawBytes, languageHint = "rus")
+        assertEquals(roText, decoded)
     }
 
     @Test

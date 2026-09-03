@@ -78,10 +78,13 @@ internal fun PlayerRuntimeController.updateMediaSessionMetadata() {
                     .build()
                 player.replaceMediaItem(player.currentMediaItemIndex, updated)
             } else {
-                // No current MediaItem yet (e.g. player just built, source not set).
-                // Avoid injecting a placeholder item without URI; Media3 validates this.
                 Log.d(PlayerRuntimeController.TAG, "MediaSession metadata deferred: player has no MediaItem yet")
             }
+            // No current MediaItem yet (e.g. player just built, source not set) means there is
+            // nothing to attach metadata to. Setting a placeholder item was tried here and can
+            // never work: a MediaItem carrying only metadata has no localConfiguration, and
+            // DefaultMediaSourceFactory.createMediaSource requires one, so setMediaItem threw
+            // every time. The metadata is applied on the next call, once the real item exists.
         }
         Log.d(
             PlayerRuntimeController.TAG,
