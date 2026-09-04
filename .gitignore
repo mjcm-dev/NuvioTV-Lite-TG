@@ -62,4 +62,9 @@ logs
 AGENTS.md
 /PR.md
 docs/
+!docs/
+docs/*
+!docs/gh-pages-link/
+!docs/gh-pages-link/index.html
+!docs/gh-pages-link/README.md
 status-page/

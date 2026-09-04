@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nuvio Device Link</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0f1216;
+      --panel: #171c22;
+      --text: #e9edf2;
+      --muted: #9ba6b2;
+      --ok: #2dbd7f;
+      --warn: #e2a93b;
+      --err: #ff6b6b;
+      --btn: #2b6df8;
+    }
+    body { margin: 0; background: radial-gradient(circle at top, #1a2330, var(--bg) 55%); color: var(--text); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 28px 16px 48px; }
+    .card { background: var(--panel); border: 1px solid #24303c; border-radius: 14px; padding: 18px; box-shadow: 0 8px 28px rgba(0,0,0,.35); }
+    h1 { margin: 0 0 6px; font-size: 26px; }
+    p { margin: 8px 0; color: var(--muted); }
+    label { display: block; margin-top: 12px; margin-bottom: 6px; color: var(--muted); font-size: 14px; }
+    input { width: 100%; box-sizing: border-box; background: #0f151d; border: 1px solid #2c3948; color: var(--text); border-radius: 10px; padding: 12px; font-size: 16px; }
+    button { margin-top: 14px; background: linear-gradient(180deg, #3d7bff, var(--btn)); color: white; border: 0; border-radius: 10px; padding: 12px 14px; font-size: 16px; font-weight: 600; cursor: pointer; }
+    button[disabled] { opacity: .55; cursor: not-allowed; }
+    .status { margin-top: 14px; padding: 11px 12px; border-radius: 10px; font-size: 14px; white-space: pre-wrap; }
+    .ok { background: rgba(45,189,127,.15); border: 1px solid rgba(45,189,127,.45); color: #d5ffe9; }
+    .warn { background: rgba(226,169,59,.14); border: 1px solid rgba(226,169,59,.45); color: #ffecc0; }
+    .err { background: rgba(255,107,107,.14); border: 1px solid rgba(255,107,107,.45); color: #ffd8d8; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .tiny { font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Link TV Device</h1>
+      <p>Sign in with Supabase, then approve the code shown on your TV.</p>
+
+      <div id="configStatus" class="status warn">Loading configuration...</div>
+
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="username" placeholder="you@example.com" />
+
+      <label for="password">Password</label>
+      <input id="password" type="password" autocomplete="current-password" placeholder="Your password" />
+
+      <button id="signInBtn" type="button">Sign In</button>
+
+      <label for="code">TV Code</label>
+      <input id="code" type="text" class="mono" maxlength="16" placeholder="ABC123" />
+
+      <button id="approveBtn" type="button">Approve Device</button>
+
+      <div id="status" class="status warn">Waiting for sign-in...</div>
+      <p class="tiny">No private keys are stored in this page. It uses public Supabase URL + anon key only.</p>
+    </div>
+  </div>
+
+  <script>
+    // IMPORTANT: replace these with your own project values before publish.
+    const SUPABASE_URL = "https://dcprixvsvnnuynyyyuah.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRjcHJpeHZzdm5udXlueXl5dWFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1MDk3MzMsImV4cCI6MjEwNDA4NTczM30.d_6Vp5dv-ZG21o2Sg1B1GQVI8ElfXl6t95Q7izjuqJ0";
+
+    function el(id) { return document.getElementById(id); }
+    function setStatus(msg, kind) {
+      const box = el("status");
+      box.textContent = msg;
+      box.className = "status " + kind;
+    }
+    function setConfig(msg, kind) {
+      const box = el("configStatus");
+      box.textContent = msg;
+      box.className = "status " + kind;
+    }
+
+    const hasConfig = SUPABASE_URL.startsWith("https://") && SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.includes("REPLACE_");
+    if (!hasConfig) {
+      setConfig("Config missing: set SUPABASE_URL and SUPABASE_ANON_KEY in index.html", "err");
+    } else {
+      setConfig("Config OK", "ok");
+    }
+
+    const q = new URLSearchParams(location.search);
+    const initialCode = q.get("code") || q.get("user_code") || q.get("device_code") || "";
+    if (initialCode) {
+      el("code").value = initialCode.trim().toUpperCase();
+    }
+
+    let accessToken = null;
+
+    async function signIn() {
+      if (!hasConfig) return;
+      const email = el("email").value.trim();
+      const password = el("password").value;
+      if (!email || !password) {
+        setStatus("Enter email and password first.", "warn");
+        return;
+      }
+      el("signInBtn").disabled = true;
+      try {
+        const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+          method: "POST",
+          headers: {
+            "apikey": SUPABASE_ANON_KEY,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.access_token) {
+          throw new Error(data.message || JSON.stringify(data));
+        }
+        accessToken = data.access_token;
+        setStatus("Signed in. Now approve the TV code.", "ok");
+      } catch (e) {
+        setStatus("Sign-in failed:\n" + (e.message || e), "err");
+      } finally {
+        el("signInBtn").disabled = false;
+      }
+    }
+
+    async function approve() {
+      if (!hasConfig) return;
+      const code = el("code").value.trim().toUpperCase();
+      if (!accessToken) {
+        setStatus("Sign in first.", "warn");
+        return;
+      }
+      if (!code) {
+        setStatus("Enter the TV code.", "warn");
+        return;
+      }
+      el("approveBtn").disabled = true;
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/approve_tv_login_session`, {
+          method: "POST",
+          headers: {
+            "apikey": SUPABASE_ANON_KEY,
+            "Authorization": `Bearer ${accessToken}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ p_code: code })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(JSON.stringify(data));
+        }
+        setStatus("Device approved. Return to TV; it should continue automatically.", "ok");
+      } catch (e) {
+        setStatus("Approve failed:\n" + (e.message || e), "err");
+      } finally {
+        el("approveBtn").disabled = false;
+      }
+    }
+
+    el("signInBtn").addEventListener("click", signIn);
+    el("approveBtn").addEventListener("click", approve);
+  </script>
+</body>
+</html>
