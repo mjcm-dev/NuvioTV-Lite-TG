@@ -244,7 +244,14 @@ class TelegramRepositoryImpl @Inject constructor(
             listOfNotNull(title, acronym)
         }
         // TG-END
-        return withAcronyms
+        // TG-START: subtitle-tail variants ("Título: Subtítulo" -> "Subtítulo", re-apply on upstream merge)
+        // Some files carry only the subtitle part ("Clave (2008)" for
+        // "Expediente X: Creer es la clave").
+        val withTails = withAcronyms.flatMap { title ->
+            listOfNotNull(title, TelegramMediaParser.subtitleTailVariant(title))
+        }
+        // TG-END
+        return withTails
             .filter { it.isNotBlank() }
             .distinctBy { TelegramMediaParser.normalizeForMatch(it) }
     }
@@ -572,6 +579,25 @@ class TelegramRepositoryImpl @Inject constructor(
         val score = TelegramTitleMatcher.bestScore(titles, parsed.cleanTitle)
         var channelContextScore = 0.0
         val titleAccepted = isImdbOnlyQuery || hasImdbTag || score >= MATCH_THRESHOLD
+        // TG-START: single-token subtitle containment for movies (re-apply on upstream merge)
+        // Files like "Clave (2008)" for "Expediente X: Creer es la clave" can never
+        // reach the overlap threshold (1 token vs 4). Accept at threshold level when
+        // the lone token belongs to a candidate title AND the year is known on both
+        // sides (the movie year gate above already enforced ±1).
+        val singleTokenSubtitleHit = !titleAccepted &&
+            !type.equals("series", ignoreCase = true) &&
+            isSingleTokenSubtitleHit(
+                titles = titles,
+                cleanTitle = parsed.cleanTitle,
+                parsedYear = parsed.year,
+                releaseYear = releaseYear
+            )
+        val effectiveScore = if (singleTokenSubtitleHit) {
+            maxOf(score, MATCH_THRESHOLD)
+        } else {
+            score
+        }
+        // TG-END
         // TG-START: bounded title-reject filename samples for diagnosis (re-apply on upstream merge)
         if (!titleAccepted && titleRejectSamples != null && titleRejectSamples.size < 8) {
             titleRejectSamples +=
@@ -579,7 +605,9 @@ class TelegramRepositoryImpl @Inject constructor(
                     "clean=${parsed.cleanTitle} year=${parsed.year ?: '-'}"
         }
         // TG-END
-        if (!titleAccepted) {
+        // TG-START: single-token subtitle containment for movies (re-apply on upstream merge)
+        if (!titleAccepted && !singleTokenSubtitleHit) {
+        // TG-END
             val isSeries = type.equals("series", ignoreCase = true)
             val hasRequestedEpisode = season != null || episode != null
             val hasParsedEpisodeMarkers = effectiveSeason != null || effectiveEpisode != null
@@ -614,7 +642,9 @@ class TelegramRepositoryImpl @Inject constructor(
             parsed = parsed,
             hasImdbTag = hasImdbTag,
             isImdbOnlyQuery = isImdbOnlyQuery,
-            score = score,
+            // TG-START: single-token subtitle containment for movies (re-apply on upstream merge)
+            score = effectiveScore,
+            // TG-END
             channelContextScore = channelContextScore
         )
     }
@@ -1153,6 +1183,29 @@ class TelegramRepositoryImpl @Inject constructor(
 
     private fun containsAny(normalizedText: String, terms: List<String>): Boolean =
         terms.any { term -> normalizedText.contains(term) }
+
+    // TG-START: single-token subtitle containment for movies (re-apply on upstream merge)
+    /**
+     * True when the file carries a single significant token that belongs to a
+     * candidate title ("Clave (2008)" vs "Expediente X: Creer es la clave") and
+     * the year is known on both sides. The caller guarantees the movie year gate
+     * (±1) already passed, so same year here means a genuine match signal.
+     * Minimum 4 chars keeps stray words ("Up", "It", "No") out.
+     */
+    private fun isSingleTokenSubtitleHit(
+        titles: List<String>,
+        cleanTitle: String,
+        parsedYear: Int?,
+        releaseYear: Int?
+    ): Boolean {
+        if (parsedYear == null || releaseYear == null) return false
+        val fileTokens = TelegramMediaParser.matchTokens(cleanTitle)
+        if (fileTokens.size != 1) return false
+        val token = fileTokens[0]
+        if (token.length < 4) return false
+        return titles.any { title -> token in TelegramMediaParser.matchTokens(title) }
+    }
+    // TG-END
 
     private fun qualityRank(quality: String?): Int {
         val q = quality?.lowercase() ?: return -1

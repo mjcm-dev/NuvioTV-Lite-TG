@@ -199,4 +199,21 @@ object TelegramMediaParser {
         if (matchTokens(head).size < 2) return null
         return head
     }
+
+    /**
+     * Tail of a "Title: Subtitle" style name ("Expediente X: Creer es la clave"
+     * -> "Creer es la clave"). Some files carry only the subtitle part
+     * ("Clave (2008)"). Same splitting and minimum-token rules as the head.
+     */
+    fun subtitleTailVariant(title: String): String? {
+        val parts = title
+            .split(Regex("""\s*[:–—]\s*|\s+-\s+"""))
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+        if (parts.size < 2) return null
+        val tail = parts.last()
+        if (tail.equals(title.trim(), ignoreCase = true)) return null
+        if (matchTokens(tail).size < 2) return null
+        return tail
+    }
 }

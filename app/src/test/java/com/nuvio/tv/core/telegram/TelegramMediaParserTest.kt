@@ -127,6 +127,26 @@ class TelegramMediaParserTest {
     }
     // TG-END
 
+    // TG-START: subtitle-tail variants (re-apply on upstream merge)
+    @Test
+    fun `subtitle tail keeps subtitle part`() {
+        assertEquals(
+            "Creer es la clave",
+            TelegramMediaParser.subtitleTailVariant("Expediente X: Creer es la clave")
+        )
+        assertEquals(
+            "I Want to Believe",
+            TelegramMediaParser.subtitleTailVariant("The X-Files: I Want to Believe")
+        )
+    }
+
+    @Test
+    fun `subtitle tail rejects missing or single-token tails`() {
+        assertNull(TelegramMediaParser.subtitleTailVariant("Heat"))
+        assertNull(TelegramMediaParser.subtitleTailVariant("Avatar: Fire"))
+    }
+    // TG-END
+
     // TG-START: non-localized series patterns (re-apply on upstream merge)
     @Test
     fun `non-localized keeps numeric patterns`() {
