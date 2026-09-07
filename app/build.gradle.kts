@@ -256,6 +256,9 @@ android {
             buildConfigField("String", "TRAILER_API_URL", "\"${devProperties.getProperty("TRAILER_API_URL", "")}\"")
             buildConfigField("String", "IMDB_RATINGS_API_BASE_URL", "\"${devProperties.getProperty("IMDB_RATINGS_API_BASE_URL", "")}\"")
             buildConfigField("String", "IMDB_TAPFRAME_API_BASE_URL", "\"${devProperties.getProperty("IMDB_TAPFRAME_API_BASE_URL", "")}\"")
+            // TG-START: TMDB key feeds TG title seeds (re-apply on upstream merge)
+            buildConfigField("String", "TMDB_API_KEY", buildConfigString(resolveProperty(devProperties, localProperties, "TMDB_API_KEY")))
+            // TG-END
             buildConfigField("String", "SUPPORTERS_API_BASE_URL", buildConfigString(resolveProperty(devProperties, localProperties, "SUPPORTERS_API_BASE_URL", "https://nuvio.tv/")))
             buildConfigField("String", "SUPPORT_URL", buildConfigString(resolveProperty(devProperties, localProperties, "SUPPORT_URL", "https://nuvio.tv/support")))
             buildConfigField("String", "AVATAR_PUBLIC_BASE_URL", "\"${devProperties.getProperty("AVATAR_PUBLIC_BASE_URL", localProperties.getProperty("AVATAR_PUBLIC_BASE_URL", ""))}\"")
@@ -263,6 +266,10 @@ android {
             buildConfigField("String", "PLAYBACK_REPORTS_BASE_URL", buildConfigString(resolveProperty(devProperties, localProperties, "PLAYBACK_REPORTS_BASE_URL")))
             buildConfigField("String", "PREMIUMIZE_CLIENT_ID", "\"${devProperties.getProperty("PREMIUMIZE_CLIENT_ID", localProperties.getProperty("PREMIUMIZE_CLIENT_ID", ""))}\"")
             buildConfigField("String", "SPONSOR_NAMES", buildConfigString(sponsorNames))
+            // TG-START: Telegram API credentials (re-apply on upstream merge)
+            buildConfigField("int", "TELEGRAM_API_ID", resolveProperty(devProperties, localProperties, "TELEGRAM_API_ID", "0"))
+            buildConfigField("String", "TELEGRAM_API_HASH", buildConfigString(resolveProperty(devProperties, localProperties, "TELEGRAM_API_HASH")))
+            // TG-END
         }
         release {
             isMinifyEnabled = true
@@ -291,6 +298,9 @@ android {
             buildConfigField("String", "TRAILER_API_URL", "\"${localProperties.getProperty("TRAILER_API_URL", "")}\"")
             buildConfigField("String", "IMDB_RATINGS_API_BASE_URL", "\"${localProperties.getProperty("IMDB_RATINGS_API_BASE_URL", "")}\"")
             buildConfigField("String", "IMDB_TAPFRAME_API_BASE_URL", "\"${localProperties.getProperty("IMDB_TAPFRAME_API_BASE_URL", "")}\"")
+            // TG-START: TMDB key feeds TG title seeds (re-apply on upstream merge)
+            buildConfigField("String", "TMDB_API_KEY", buildConfigString(resolveProperty(devProperties, localProperties, "TMDB_API_KEY")))
+            // TG-END
             buildConfigField("String", "SUPPORTERS_API_BASE_URL", buildConfigString(localProperties.getProperty("SUPPORTERS_API_BASE_URL", "https://nuvio.tv/")))
             buildConfigField("String", "SUPPORT_URL", buildConfigString(localProperties.getProperty("SUPPORT_URL", "https://nuvio.tv/support")))
             buildConfigField("String", "AVATAR_PUBLIC_BASE_URL", "\"${localProperties.getProperty("AVATAR_PUBLIC_BASE_URL", "")}\"")
@@ -298,6 +308,10 @@ android {
             buildConfigField("String", "PLAYBACK_REPORTS_BASE_URL", buildConfigString(localProperties.getProperty("PLAYBACK_REPORTS_BASE_URL", "")))
             buildConfigField("String", "PREMIUMIZE_CLIENT_ID", "\"${localProperties.getProperty("PREMIUMIZE_CLIENT_ID", "")}\"")
             buildConfigField("String", "SPONSOR_NAMES", buildConfigString(sponsorNames))
+            // TG-START: Telegram API credentials (re-apply on upstream merge)
+            buildConfigField("int", "TELEGRAM_API_ID", resolveProperty(devProperties, localProperties, "TELEGRAM_API_ID", "0"))
+            buildConfigField("String", "TELEGRAM_API_HASH", buildConfigString(resolveProperty(devProperties, localProperties, "TELEGRAM_API_HASH")))
+            // TG-END
         }
         create("benchmark") {
             initWith(buildTypes.getByName("release"))

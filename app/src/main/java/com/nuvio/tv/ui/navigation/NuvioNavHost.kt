@@ -1167,6 +1167,9 @@ fun NuvioNavHost(
                 onNavigateToAddons = { navController.navigate(Screen.AddonManager.route) },
                 onNavigateToPlugins = { navController.navigate(Screen.Plugins.route) },
                 onNavigateToAuthQrSignIn = { navController.navigate(Screen.AuthQrSignIn.route) },
+                // TG-START: Telegram settings navigation (re-apply on upstream merge)
+                onNavigateToTelegram = { navController.navigate(Screen.TelegramAuth.route) },
+                // TG-END
                 onNavigateToManageProfiles = { navController.navigate(Screen.ManageProfiles.route) },
                 onNavigateToSupportersContributors = {
                     navController.navigate(Screen.SupportersContributors.route)
@@ -1315,6 +1318,14 @@ fun NuvioNavHost(
                 onBackPress = { navController.popBackStack() }
             )
         }
+
+        // TG-START: Telegram auth destination (re-apply on upstream merge)
+        composable(Screen.TelegramAuth.route) {
+            com.nuvio.tv.ui.screens.settings.telegram.TelegramAuthScreen(
+                onBackPress = { navController.popBackStack() }
+            )
+        }
+        // TG-END
 
         composable(Screen.LayoutSettings.route) {
             LayoutSettingsScreen(

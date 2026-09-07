@@ -43,6 +43,9 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
     @Inject lateinit var androidTvChannelSyncService: AndroidTvChannelSyncService
     @Inject lateinit var sentrySettingsDataStore: SentrySettingsDataStore
     @Inject lateinit var imagePerformancePreferences: ImagePerformancePreferences
+    // TG-START: Telegram session injection (re-apply on upstream merge)
+    @Inject lateinit var telegramClientManager: com.nuvio.tv.core.telegram.TelegramClientManager
+    // TG-END
     @Inject lateinit var simklAnimeIdPreferenceHolder: SimklAnimeIdPreferenceHolder
 
     companion object {
@@ -88,6 +91,9 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
             SentryInitializer.start(this, sentrySettingsDataStore)
         }
         PluginRuntimeHooks.onApplicationCreate(this)
+        // TG-START: resume persisted Telegram session (re-apply on upstream merge)
+        telegramClientManager.resumePersistedSession()
+        // TG-END
         if (!AppFeaturePolicy.liteMode) {
             androidTvChannelSyncService.start()
         }

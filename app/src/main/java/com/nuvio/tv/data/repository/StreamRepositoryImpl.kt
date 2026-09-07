@@ -11,10 +11,16 @@ import com.nuvio.tv.core.debrid.LocalDebridAvailabilityService
 import com.nuvio.tv.core.plugin.PluginManager
 import com.nuvio.tv.core.plugin.resolvePluginSeasonEpisode
 import com.nuvio.tv.core.profile.ProfileManager
+// TG-START: Telegram search/playback imports (re-apply on upstream merge)
+import com.nuvio.tv.core.telegram.TelegramStreamProxy
+// TG-END
 import com.nuvio.tv.core.tmdb.TmdbService
 import com.nuvio.tv.data.local.DebridSettingsDataStore
 import com.nuvio.tv.data.mapper.toDomain
 import com.nuvio.tv.data.remote.api.AddonApi
+// TG-START: TmdbApi direct use for TG title seeds (re-apply on upstream merge)
+import com.nuvio.tv.data.remote.api.TmdbApi
+// TG-END
 import com.nuvio.tv.domain.model.Addon
 import com.nuvio.tv.domain.model.AddonStreams
 import com.nuvio.tv.domain.model.DebridSettings
@@ -27,6 +33,11 @@ import com.nuvio.tv.domain.model.StreamBehaviorHints
 import com.nuvio.tv.domain.model.enabledAddons
 import com.nuvio.tv.domain.repository.AddonRepository
 import com.nuvio.tv.domain.repository.StreamRepository
+// TG-START: Telegram search/playback imports (re-apply on upstream merge)
+import com.nuvio.tv.domain.repository.MetaRepository
+import com.nuvio.tv.domain.repository.TelegramRepository
+import com.nuvio.tv.domain.repository.TelegramStreamResult
+// TG-END
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
@@ -43,9 +54,16 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import java.net.URLEncoder
 import java.security.MessageDigest
+// TG-START: Locale for TG title normalization (re-apply on upstream merge)
+import java.util.Locale
+// TG-END
 import javax.inject.Inject
 
 private const val TAG = "StreamRepositoryImpl"
+// TG-START: Telegram source constants (re-apply on upstream merge)
+private const val TELEGRAM_ADDON_NAME = "Telegram"
+private const val MAX_ALT_TITLES = 8
+// TG-END
 
 class StreamRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -56,7 +74,13 @@ class StreamRepositoryImpl @Inject constructor(
     private val debridSettingsDataStore: DebridSettingsDataStore,
     private val tmdbService: TmdbService,
     private val debridStreamPresentation: DebridStreamPresentation,
-    private val localDebridAvailabilityService: LocalDebridAvailabilityService
+    private val localDebridAvailabilityService: LocalDebridAvailabilityService,
+    // TG-START: Telegram search/playback dependencies (re-apply on upstream merge)
+    private val telegramRepository: TelegramRepository,
+    private val telegramStreamProxy: TelegramStreamProxy,
+    private val metaRepository: MetaRepository,
+    private val tmdbApi: TmdbApi
+    // TG-END
 ) : StreamRepository {
     private val streamSearchSessions = StreamSearchSessionCache()
     private val localPluginSearchPaused = MutableStateFlow(false)
@@ -85,6 +109,14 @@ class StreamRepositoryImpl @Inject constructor(
         val pluginRepositories: List<PluginRepository>,
         val debridSettings: DebridSettings
     )
+
+    // TG-START: Telegram title seed (re-apply on upstream merge)
+    private data class TelegramSearchSeed(
+        val titles: List<String>,
+        val releaseYear: Int?,
+        val imdbId: String?
+    )
+    // TG-END
 
     override fun getStreamsFromAllAddons(
         type: String,
@@ -186,7 +218,9 @@ class StreamRepositoryImpl @Inject constructor(
                 val resultChannel = Channel<AddonStreams>(Channel.UNLIMITED)
                 
                 // Track number of pending jobs
-                val totalJobs = streamAddons.size + 1
+                // TG-START: +1 job for the Telegram search coroutine below (re-apply on upstream merge)
+                val totalJobs = streamAddons.size + 2 // addons + plugins + telegram
+                // TG-END
                 val completedJobs = java.util.concurrent.atomic.AtomicInteger(0)
 
                 // Launch addon jobs, bounded so a large addon list can't hold every
@@ -288,6 +322,50 @@ class StreamRepositoryImpl @Inject constructor(
                         }
                     }
                 }
+
+                // TG-START: Telegram search job (TELEGRAM_GATE; re-apply on upstream merge)
+                launch {
+                    try {
+                        if (!telegramRepository.isAvailable()) {
+                            Log.i(TAG, "TELEGRAM_GATE: skip, TDLib not Ready")
+                            return@launch
+                        }
+
+                        val searchSeed = resolveTmdbTitles(type, videoId)
+                        if (searchSeed == null) {
+                            Log.i(TAG, "TELEGRAM_GATE: no TMDB titles for $videoId ($type)")
+                            return@launch
+                        }
+                        val titles = searchSeed.titles
+                        val releaseYear = searchSeed.releaseYear
+                        Log.i(
+                            TAG,
+                            "TELEGRAM_GATE: searching \"${titles.first()}\" " +
+                                "year=$releaseYear imdb=${searchSeed.imdbId ?: '-'} S=$season E=$episode"
+                        )
+                        val telegramResults = telegramRepository.searchStreams(
+                            type = type,
+                            titles = titles,
+                            releaseYear = releaseYear,
+                            imdbId = searchSeed.imdbId,
+                            season = season,
+                            episode = episode
+                        )
+                        if (telegramResults.isNotEmpty()) {
+                            resultChannel.send(buildTelegramAddonStreams(telegramResults))
+                        } else {
+                            Log.i(TAG, "TELEGRAM_GATE: 0 results for \"${titles.first()}\"")
+                        }
+                    } catch (e: Exception) {
+                        if (e is CancellationException) throw e
+                        Log.e(TAG, "TELEGRAM_GATE: search failed", e)
+                    } finally {
+                        if (completedJobs.incrementAndGet() >= totalJobs) {
+                            resultChannel.close()
+                        }
+                    }
+                }
+                // TG-END
 
                 // Emit results as they arrive
                 for (result in resultChannel) {
@@ -553,6 +631,274 @@ class StreamRepositoryImpl @Inject constructor(
         result.language?.let { parts.add(it) }
         return if (parts.isNotEmpty()) parts.joinToString(" • ") else null
     }
+
+    // TG-START: Telegram title-seed cascade + stream mapping (whole block; re-apply on upstream merge)
+    /**
+     * Resolves candidate titles and release year for a video id.
+     * Cascade: TMDB details → cached meta (detail screen already fetched it)
+     * → primary addon meta. TMDB imdb→tmdb mapping misses brand-new ids, so
+     * the meta fallbacks are essential.
+     */
+    private suspend fun resolveTmdbTitles(
+        type: String,
+        videoId: String
+    ): TelegramSearchSeed? {
+        val apiKey = tmdbService.apiKey()
+        val imdbIdFromVideoId = extractImdbId(videoId)
+        val metaLookupId = imdbIdFromVideoId ?: videoId
+        val mergedTitles = LinkedHashSet<String>()
+        val preferredLanguage = preferredTmdbLanguageTag()
+        var mergedYear: Int? = null
+        var mergedImdbId: String? = imdbIdFromVideoId
+
+        val tmdbId = tmdbService.ensureTmdbId(metaLookupId, type)?.toIntOrNull()
+        if (tmdbId != null) {
+            val fromTmdb = resolveTmdbSeed(type, tmdbId, apiKey, preferredLanguage)
+            if (fromTmdb != null) {
+                mergedTitles += fromTmdb.titles
+                if (mergedYear == null) mergedYear = fromTmdb.releaseYear
+                if (mergedImdbId == null) mergedImdbId = fromTmdb.imdbId
+            }
+        }
+
+        if (imdbIdFromVideoId != null) {
+            val tmdbIdFromImdb = runCatching {
+                val body = tmdbApi.findByExternalId(imdbIdFromVideoId, apiKey).body()
+                if (type.equals("series", ignoreCase = true)) {
+                    body?.tvResults?.firstOrNull()?.id
+                } else {
+                    body?.movieResults?.firstOrNull()?.id
+                }
+            }.getOrNull()
+            if (tmdbIdFromImdb != null) {
+                val fromTmdbViaImdb = resolveTmdbSeed(type, tmdbIdFromImdb, apiKey, preferredLanguage)
+                if (fromTmdbViaImdb != null) {
+                    mergedTitles += fromTmdbViaImdb.titles
+                    if (mergedYear == null) mergedYear = fromTmdbViaImdb.releaseYear
+                    mergedImdbId = imdbIdFromVideoId
+                }
+            }
+        }
+
+        metaRepository.getCachedMeta(type, metaLookupId)?.let { cached ->
+            titlesFromMeta(cached.name, cached.releaseInfo, imdbIdFromVideoId)?.let { fromMeta ->
+                mergedTitles += fromMeta.titles
+                if (mergedYear == null) mergedYear = fromMeta.releaseYear
+                if (mergedImdbId == null) mergedImdbId = fromMeta.imdbId
+            }
+        }
+
+        val fromPrimary = runCatching {
+            when (val result = metaRepository.getMetaFromPrimaryAddon(type, metaLookupId).first()) {
+                is NetworkResult.Success -> titlesFromMeta(
+                    name = result.data.name,
+                    releaseInfo = result.data.releaseInfo,
+                    imdbId = imdbIdFromVideoId
+                )
+                else -> null
+            }
+        }.getOrNull()
+        if (fromPrimary != null) {
+            mergedTitles += fromPrimary.titles
+            if (mergedYear == null) mergedYear = fromPrimary.releaseYear
+            if (mergedImdbId == null) mergedImdbId = fromPrimary.imdbId
+        }
+
+        if (!preferredLanguage.equals("en-US", ignoreCase = true)) {
+            val englishTitles = tmdbId?.let { id ->
+                runCatching {
+                    resolveTmdbSeed(type, id, apiKey, "en-US")
+                }.getOrNull()?.titles.orEmpty()
+            }.orEmpty()
+            mergedTitles += englishTitles
+        }
+
+        val finalTitles = mergedTitles
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+            .distinctBy { it.lowercase(Locale.US) }
+
+        if (finalTitles.isEmpty()) return null
+
+        return TelegramSearchSeed(
+            titles = finalTitles,
+            releaseYear = mergedYear,
+            imdbId = mergedImdbId
+        )
+    }
+
+    private suspend fun resolveTmdbSeed(
+        type: String,
+        tmdbId: Int,
+        apiKey: String,
+        preferredLanguage: String
+    ): TelegramSearchSeed? {
+        val preferredCountry = preferredTmdbCountryCode()
+        val languageOrder = listOfNotNull(
+            preferredLanguage,
+            "en-US".takeIf { !preferredLanguage.equals("en-US", ignoreCase = true) },
+            null
+        )
+
+        val titles = LinkedHashSet<String>()
+        var releaseYear: Int? = null
+        for (language in languageOrder) {
+            val body = runCatching {
+                if (type.equals("series", ignoreCase = true)) {
+                    tmdbApi.getTvDetails(tmdbId, apiKey, language).body()
+                } else {
+                    tmdbApi.getMovieDetails(tmdbId, apiKey, language).body()
+                }
+            }.getOrNull() ?: continue
+
+            val detailTitles = if (type.equals("series", ignoreCase = true)) {
+                listOfNotNull(body.name, body.originalName)
+            } else {
+                listOfNotNull(body.title, body.originalTitle)
+            }
+            detailTitles
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .forEach { titles += it }
+
+            if (releaseYear == null) {
+                releaseYear = if (type.equals("series", ignoreCase = true)) {
+                    body.firstAirDate?.take(4)?.toIntOrNull()
+                } else {
+                    body.releaseDate?.take(4)?.toIntOrNull()
+                }
+            }
+        }
+
+        if (titles.isEmpty()) return null
+
+        val alternativeTitles = runCatching {
+            val response = if (type.equals("series", ignoreCase = true)) {
+                tmdbApi.getTvAlternativeTitles(tmdbId, apiKey).body()
+            } else {
+                tmdbApi.getMovieAlternativeTitles(tmdbId, apiKey).body()
+            }
+            val all = (response?.movieTitles ?: emptyList()) + (response?.tvTitles ?: emptyList())
+            val countryPriority = listOfNotNull(
+                preferredCountry,
+                "US".takeIf { preferredCountry != "US" },
+                "GB".takeIf { preferredCountry != "GB" },
+                "ES".takeIf { preferredCountry != "ES" },
+                "MX".takeIf { preferredCountry != "MX" }
+            )
+            all.asSequence()
+                .mapNotNull { alt ->
+                    val title = alt.title?.trim().orEmpty()
+                    val country = alt.countryCode?.uppercase(Locale.US).orEmpty()
+                    if (title.isBlank()) return@mapNotNull null
+                    val priority = countryPriority.indexOf(country).let { idx -> if (idx >= 0) idx else Int.MAX_VALUE }
+                    Triple(title, country, priority)
+                }
+                .sortedWith(compareBy<Triple<String, String, Int>> { it.third }.thenBy { it.first.length })
+                .map { it.first }
+                .distinctBy { it.lowercase(Locale.US) }
+                .take(MAX_ALT_TITLES)
+                .toList()
+        }.getOrDefault(emptyList())
+
+        titles += alternativeTitles
+
+        val imdbId = runCatching {
+            if (type.equals("series", ignoreCase = true)) {
+                tmdbApi.getTvExternalIds(tmdbId, apiKey).body()?.imdbId
+            } else {
+                tmdbApi.getMovieExternalIds(tmdbId, apiKey).body()?.imdbId
+            }
+        }.getOrNull()?.trim()?.takeIf { it.startsWith("tt") }
+
+        return TelegramSearchSeed(
+            titles = titles.toList(),
+            releaseYear = releaseYear,
+            imdbId = imdbId
+        )
+    }
+
+    private fun titlesFromMeta(name: String?, releaseInfo: String?, imdbId: String?): TelegramSearchSeed? {
+        val cleanName = name?.trim().orEmpty()
+        if (cleanName.isEmpty()) return null
+        val year = releaseInfo?.trim()?.take(4)?.toIntOrNull()
+            ?.takeIf { it in 1900..2100 }
+        return TelegramSearchSeed(
+            titles = listOf(cleanName),
+            releaseYear = year,
+            imdbId = imdbId
+        )
+    }
+
+    private fun extractImdbId(raw: String?): String? {
+        val value = raw?.trim().orEmpty()
+        if (value.isBlank()) return null
+        return Regex("""tt\d{7,9}""", RegexOption.IGNORE_CASE)
+            .find(value)
+            ?.value
+            ?.lowercase(Locale.US)
+    }
+
+    private fun preferredTmdbLanguageTag(): String {
+        val locale = context.resources.configuration.locales.get(0)
+        val language = locale?.language?.lowercase(Locale.US).orEmpty()
+        if (language.isBlank()) return "en-US"
+
+        val country = locale?.country?.uppercase(Locale.US).orEmpty()
+        return if (country.isNotBlank()) "$language-$country" else "$language-US"
+    }
+
+    private fun preferredTmdbCountryCode(): String? {
+        val locale = context.resources.configuration.locales.get(0)
+        return locale?.country
+            ?.uppercase(Locale.US)
+            ?.takeIf { it.length == 2 }
+    }
+
+    private suspend fun buildTelegramAddonStreams(
+        results: List<TelegramStreamResult>
+    ): AddonStreams = AddonStreams(
+        addonName = TELEGRAM_ADDON_NAME,
+        addonLogo = null,
+        streams = results.map { result ->
+            val chatTitle = runCatching {
+                telegramRepository.chatTitle(result.chatId)
+            }.getOrNull()
+            Stream(
+                name = result.fileName,
+                title = result.fileName,
+                description = listOfNotNull(chatTitle, formatBytesShort(result.sizeBytes))
+                    .joinToString(" • "),
+                url = telegramStreamProxy.buildStreamUrl(
+                    result.chatId, result.messageId, result.fileId
+                ),
+                ytId = null,
+                infoHash = null,
+                fileIdx = null,
+                externalUrl = null,
+                behaviorHints = StreamBehaviorHints(
+                    notWebReady = null,
+                    bingeGroup = null,
+                    countryWhitelist = null,
+                    proxyHeaders = null,
+                    videoHash = null,
+                    videoSize = result.sizeBytes,
+                    filename = result.fileName
+                ),
+                addonName = TELEGRAM_ADDON_NAME,
+                addonLogo = null,
+                quality = result.quality,
+                qualityValue = parseQualityValue(result.quality)
+            )
+        }
+    )
+
+    private fun formatBytesShort(bytes: Long): String = when {
+        bytes >= 1L shl 30 -> String.format(java.util.Locale.US, "%.1f GB", bytes / 1e9)
+        bytes >= 1L shl 20 -> String.format(java.util.Locale.US, "%.0f MB", bytes / 1e6)
+        else -> "$bytes B"
+    }
+    // TG-END
 
     private fun parseQualityValue(quality: String?): Int {
         if (quality == null) return -1

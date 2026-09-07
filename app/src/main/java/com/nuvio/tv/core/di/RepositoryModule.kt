@@ -7,6 +7,9 @@ import com.nuvio.tv.data.repository.MetaRepositoryImpl
 import com.nuvio.tv.data.repository.StreamRepositoryImpl
 import com.nuvio.tv.data.repository.SubtitleRepositoryImpl
 import com.nuvio.tv.data.repository.SyncRepositoryImpl
+// TG-START: Telegram repository binding (re-apply on upstream merge)
+import com.nuvio.tv.data.repository.TelegramRepositoryImpl
+// TG-END
 import com.nuvio.tv.data.repository.WatchProgressRepositoryImpl
 import com.nuvio.tv.domain.repository.AddonRepository
 import com.nuvio.tv.domain.repository.CatalogRepository
@@ -15,6 +18,9 @@ import com.nuvio.tv.domain.repository.MetaRepository
 import com.nuvio.tv.domain.repository.StreamRepository
 import com.nuvio.tv.domain.repository.SubtitleRepository
 import com.nuvio.tv.domain.repository.SyncRepository
+// TG-START: Telegram repository binding (re-apply on upstream merge)
+import com.nuvio.tv.domain.repository.TelegramRepository
+// TG-END
 import com.nuvio.tv.domain.repository.WatchProgressRepository
 import dagger.Binds
 import dagger.Module
@@ -53,6 +59,12 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindSyncRepository(impl: SyncRepositoryImpl): SyncRepository
+
+    // TG-START: Telegram repository binding (re-apply on upstream merge)
+    @Binds
+    @Singleton
+    abstract fun bindTelegramRepository(impl: TelegramRepositoryImpl): TelegramRepository
+    // TG-END
 
     @Binds
     @Singleton

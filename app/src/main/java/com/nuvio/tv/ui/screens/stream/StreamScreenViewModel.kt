@@ -1,6 +1,9 @@
 package com.nuvio.tv.ui.screens.stream
 
 import android.content.Context
+// TG-START: Uri for TG scope key parsing (re-apply on upstream merge)
+import android.net.Uri
+// TG-END
 import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -67,6 +70,9 @@ import javax.inject.Inject
 
 private const val TAG = "StreamScreenViewModel"
 private const val DIRECT_AUTOPLAY_HARD_TIMEOUT_MS = 60_000L
+// TG-START: preferred-resume cache TTL (re-apply on upstream merge)
+private const val PREFERRED_STREAM_CACHE_FALLBACK_MS = 30L * 24L * 60L * 60L * 1000L
+// TG-END
 
 @HiltViewModel
 class StreamScreenViewModel @Inject constructor(
@@ -131,10 +137,30 @@ class StreamScreenViewModel @Inject constructor(
     private val contentLanguage: String? = savedStateHandle.getOptionalString("contentLanguage")
     private val playbackProfileId: Int = savedStateHandle.get<String>("profileId")?.toIntOrNull()
         ?: profileManager.activeProfileId.value
+    // TG-START: resume/cache keys incl. TG scope support (re-apply on upstream merge)
+    private val startFromBeginning: Boolean = savedStateHandle.get<String>("startFromBeginning")
+        ?.toBooleanStrictOrNull()
+        ?: false
     private val manualSelection: Boolean = savedStateHandle.get<String>("manualSelection")
         ?.toBooleanStrictOrNull()
         ?: false
-    private val streamCacheKey: String = "${contentType.lowercase()}|$videoId"
+    private val streamCacheKey: String = buildPrimaryStreamCacheKey(
+        contentType = contentType,
+        videoId = videoId,
+        contentId = contentId,
+        season = season,
+        episode = episode
+    )
+    private val streamCacheKeyCandidates: List<String> by lazy {
+        buildStreamCacheKeyCandidates(
+            contentType = contentType,
+            videoId = videoId,
+            contentId = contentId,
+            season = season,
+            episode = episode
+        )
+    }
+    // TG-END
 
     private val _uiState = MutableStateFlow(
         StreamScreenUiState(
@@ -174,6 +200,25 @@ class StreamScreenViewModel @Inject constructor(
         }
     }
 
+    // TG-START: bring preferred resume stream (incl. TG scope) to front (re-apply on upstream merge)
+    private fun prioritizePreferredStream(
+        streams: List<Stream>,
+        preferredUrl: String?
+    ): List<Stream> {
+        if (preferredUrl.isNullOrBlank()) return streams
+        val preferred = streams.filter { candidate ->
+            streamUrlMatchesPreferred(
+                candidateUrl = candidate.getStreamUrl(),
+                preferredUrl = preferredUrl
+            )
+        }
+        if (preferred.isEmpty()) return streams
+        return preferred + streams.filterNot { candidate ->
+            preferred.any { it.stableKey() == candidate.stableKey() }
+        }
+    }
+    // TG-END
+
     private fun scheduleStreamBadgePresentation(groups: List<AddonStreams>) {
         // Only process addon groups that haven't been badged yet
         val newGroups = groups.filter { it.addonName !in badgedAddonNames }
@@ -203,7 +248,12 @@ class StreamScreenViewModel @Inject constructor(
                                 }
                             )
                         }
-                        val updatedAllStreams = updatedAddonStreams.flatMap { it.streams }
+                        // TG-START: keep preferred resume stream first on badge updates (re-apply on upstream merge)
+                        val updatedAllStreams = prioritizePreferredStream(
+                            streams = updatedAddonStreams.flatMap { it.streams },
+                            preferredUrl = state.preferredResumeStreamUrl
+                        )
+                        // TG-END
                         val currentFilter = state.selectedAddonFilter
                         val filteredStreams = if (currentFilter == null) {
                             updatedAllStreams
@@ -345,6 +395,9 @@ class StreamScreenViewModel @Inject constructor(
         streamLoadScope = newScope
         streamLoadJob = newScope.launch {
             streamLoadCompleted = false
+            // TG-START: resolve preferred resume URL incl. TG scope (re-apply on upstream merge)
+            val preferredResumeStreamUrl = resolvePreferredResumeStreamUrl()
+            // TG-END
             val playerSettings = playerSettingsDataStore.playerSettings.first()
             if (manualSelection) {
                 directAutoPlayModeInitializedForSession = true
@@ -386,6 +439,9 @@ class StreamScreenViewModel @Inject constructor(
                         isDirectAutoPlayFlow = true,
                         showDirectAutoPlayOverlay = true,
                         autoPlayDecided = true,
+                        // TG-START: expose preferred resume URL to UI (re-apply on upstream merge)
+                        preferredResumeStreamUrl = preferredResumeStreamUrl,
+                        // TG-END
                         directAutoPlayMessage = if (playerSettings.showPlayerLoadingStatus) {
                             context.getString(R.string.stream_finding_source)
                         } else {
@@ -395,15 +451,21 @@ class StreamScreenViewModel @Inject constructor(
                 }
             } else {
                 updateUiStateIfChanged {
-                    it.copy(autoPlayDecided = true)
+                    it.copy(
+                        autoPlayDecided = true,
+                        // TG-START: expose preferred resume URL to UI (re-apply on upstream merge)
+                        preferredResumeStreamUrl = preferredResumeStreamUrl
+                        // TG-END
+                    )
                 }
             }
 
             if (!autoPlayHandledForSession && playerSettings.streamReuseLastLinkEnabled) {
-                val cached = streamLinkCacheDataStore.getValid(
-                    contentKey = streamCacheKey,
+                // TG-START: cache lookup across fallback keys incl. TG scope (re-apply on upstream merge)
+                val cached = getValidCachedStream(
                     maxAgeMs = playerSettings.streamReuseLastLinkCacheHours * 60L * 60L * 1000L
                 )
+                // TG-END
                 if (cached != null) {
                     autoPlayHandledForSession = true
                     resolvedAutoPlayTarget = true
@@ -494,6 +556,22 @@ class StreamScreenViewModel @Inject constructor(
                 }
 
                 val allStreams = mergedAddonStreams.flatMap { it.streams }
+                // TG-START: order by preferred resume stream incl. TG scope (re-apply on upstream merge)
+                val preferredStreams = allStreams.filter { stream ->
+                    streamUrlMatchesPreferred(
+                        candidateUrl = stream.getStreamUrl(),
+                        preferredUrl = preferredResumeStreamUrl
+                    )
+                }
+                if (preferredResumeStreamUrl != null) {
+                    val sample = allStreams.take(6).mapNotNull { it.getStreamUrl() }
+                    Log.d(
+                        TAG,
+                        "Preferred resume match: target=$preferredResumeStreamUrl matches=${preferredStreams.size} sample=$sample"
+                    )
+                }
+                val orderedStreams = prioritizePreferredStream(allStreams, preferredResumeStreamUrl)
+                // TG-END
                 val availableAddons = mergedAddonStreams.map { it.addonName }
                 // Auto-select only after all addons have responded or the
                 // configured timeout has elapsed. This gives slower addons a
@@ -504,7 +582,9 @@ class StreamScreenViewModel @Inject constructor(
                     null
                 } else {
                     StreamAutoPlaySelector.selectAutoPlayStream(
-                        streams = allStreams,
+                        // TG-START: select from TG-ordered streams (else allStreams; re-apply on upstream merge)
+                        streams = orderedStreams,
+                        // TG-END
                         mode = playerSettings.streamAutoPlayMode,
                         regexPattern = playerSettings.streamAutoPlayRegex,
                         source = playerSettings.streamAutoPlaySource,
@@ -520,17 +600,21 @@ class StreamScreenViewModel @Inject constructor(
                 }
 
                 val currentFilter = _uiState.value.selectedAddonFilter
+                // TG-START: filter TG-ordered streams (else allStreams; re-apply on upstream merge)
                 val filteredStreams = if (currentFilter == null) {
-                    allStreams
+                    orderedStreams
                 } else {
-                    allStreams.filter { it.addonName == currentFilter }
+                    orderedStreams.filter { it.addonName == currentFilter }
                 }
+                // TG-END
 
                 updateUiStateIfChanged {
                     it.copy(
                         isLoading = false,
                         addonStreams = mergedAddonStreams,
-                        allStreams = allStreams,
+                        // TG-START: expose TG-ordered streams (else allStreams; re-apply on upstream merge)
+                        allStreams = orderedStreams,
+                        // TG-END
                         filteredStreams = filteredStreams,
                         availableAddons = availableAddons,
                         sourceChips = mergeSourceChipStatuses(
@@ -618,15 +702,25 @@ class StreamScreenViewModel @Inject constructor(
                                 val updatedAllStreams = updatedGroups.flatMap { addonStreams ->
                                     addonStreams.streams
                                 }
+                                // TG-START: keep TG-ordered streams on debrid updates (re-apply on upstream merge)
+                                val orderedStreams = prioritizePreferredStream(
+                                    streams = updatedAllStreams,
+                                    preferredUrl = state.preferredResumeStreamUrl
+                                )
+                                // TG-END
                                 val currentFilter = state.selectedAddonFilter
+                                // TG-START: filter TG-ordered streams (else updatedAllStreams; re-apply on upstream merge)
                                 val filteredStreams = if (currentFilter == null) {
-                                    updatedAllStreams
+                                    orderedStreams
                                 } else {
-                                    updatedAllStreams.filter { it.addonName == currentFilter }
+                                    orderedStreams.filter { it.addonName == currentFilter }
                                 }
+                                // TG-END
                                 state.copy(
                                     addonStreams = updatedGroups,
-                                    allStreams = updatedAllStreams,
+                                    // TG-START: expose TG-ordered streams (else updatedAllStreams; re-apply on upstream merge)
+                                    allStreams = orderedStreams,
+                                    // TG-END
                                     filteredStreams = filteredStreams
                                 )
                             }
@@ -1118,6 +1212,53 @@ class StreamScreenViewModel @Inject constructor(
             }
         }
     }
+
+    // TG-START: preferred resume URL incl. TG scope (re-apply on upstream merge)
+    // Adapted to v1.4.5: progress lookups carry playbackProfileId.
+    private suspend fun resolvePreferredResumeStreamUrl(): String? {
+        if (startFromBeginning) return null
+
+        val progressContentId = contentId
+        if (!progressContentId.isNullOrBlank()) {
+            val progress = if (season != null && episode != null) {
+                watchProgressRepository.getEpisodeProgress(progressContentId, season, episode, playbackProfileId).first()
+            } else {
+                watchProgressRepository.getProgress(progressContentId, playbackProfileId).first()
+            }
+            val progressUrl = progress
+                ?.takeIf { it.isInProgress() }
+                ?.addonBaseUrl
+                ?.takeIf { it.isNotBlank() }
+            if (progressUrl != null) {
+                Log.d(TAG, "Preferred resume source from progress: $progressUrl")
+                return progressUrl
+            }
+        }
+
+        val cache = getValidCachedStream(maxAgeMs = PREFERRED_STREAM_CACHE_FALLBACK_MS)
+        val cacheUrl = cache?.url?.takeIf { it.isNotBlank() }
+        Log.d(TAG, "Preferred resume source from cache: ${cacheUrl ?: "<none>"}")
+        return cacheUrl
+    }
+    // TG-END
+
+    // TG-START: cache lookup across fallback keys incl. TG scope (re-apply on upstream merge)
+    private suspend fun getValidCachedStream(maxAgeMs: Long): com.nuvio.tv.data.local.CachedStreamLink? {
+        for (candidateKey in streamCacheKeyCandidates) {
+            val cached = streamLinkCacheDataStore.getValid(
+                contentKey = candidateKey,
+                maxAgeMs = maxAgeMs
+            )
+            if (cached != null) {
+                if (candidateKey != streamCacheKey) {
+                    Log.d(TAG, "Reuse-last-link cache hit via fallback key=$candidateKey")
+                }
+                return cached
+            }
+        }
+        return null
+    }
+    // TG-END
 
     suspend fun resolveStreamForPlayback(stream: Stream): StreamPlaybackInfo? {
         if (!directDebridResolver.shouldResolveToPlayableStream(stream)) {
@@ -1819,6 +1960,110 @@ class StreamScreenViewModel @Inject constructor(
     }
 
 }
+
+// TG-START: multi-key cache lookup incl. TG scope (re-apply on upstream merge)
+private fun buildStreamCacheKeyCandidates(
+    contentType: String,
+    videoId: String,
+    contentId: String?,
+    season: Int?,
+    episode: Int?
+): List<String> {
+    val primaryKey = buildPrimaryStreamCacheKey(
+        contentType = contentType,
+        videoId = videoId,
+        contentId = contentId,
+        season = season,
+        episode = episode
+    )
+    val normalizedType = contentType.lowercase().trim()
+    val keys = LinkedHashSet<String>()
+    if (primaryKey.isNotBlank()) {
+        keys += primaryKey
+    }
+    if (normalizedType.isBlank()) return keys.toList()
+
+    val normalizedVideoId = videoId.trim()
+    if (normalizedVideoId.isNotBlank()) {
+        keys += "$normalizedType|$normalizedVideoId"
+    }
+
+    val normalizedContentId = contentId?.trim().orEmpty()
+    if (normalizedContentId.isNotBlank()) {
+        keys += "$normalizedType|$normalizedContentId"
+        if (season != null && episode != null) {
+            keys += "$normalizedType|$normalizedContentId:$season:$episode"
+        }
+    }
+
+    if (normalizedVideoId.contains(':')) {
+        val parentFromVideoId = normalizedVideoId.substringBefore(':').trim()
+        if (parentFromVideoId.isNotBlank()) {
+            keys += "$normalizedType|$parentFromVideoId"
+            if (season != null && episode != null) {
+                keys += "$normalizedType|$parentFromVideoId:$season:$episode"
+            }
+        }
+    }
+
+    return keys.toList()
+}
+// TG-END
+
+// TG-START: exact-or-TG-scope URL match for resume (re-apply on upstream merge)
+private fun streamUrlMatchesPreferred(candidateUrl: String?, preferredUrl: String?): Boolean {
+    if (candidateUrl.isNullOrBlank() || preferredUrl.isNullOrBlank()) return false
+    if (candidateUrl == preferredUrl) return true
+
+    val preferredTelegramScope = telegramScopeKey(preferredUrl)
+    val candidateTelegramScope = telegramScopeKey(candidateUrl)
+    if (preferredTelegramScope != null && preferredTelegramScope == candidateTelegramScope) {
+        return true
+    }
+
+    return false
+}
+// TG-END
+
+// TG-START: stable TG identity chat+message, fileId ignored (re-apply on upstream merge)
+private fun telegramScopeKey(url: String): String? {
+    return runCatching {
+        val uri = Uri.parse(url)
+        val segments = uri.pathSegments
+        if (segments.size < 4) return null
+        if (!segments[0].equals("tg", ignoreCase = true)) return null
+        val chatId = segments[1].trim()
+        val messageId = segments[2].trim()
+        if (chatId.isBlank() || messageId.isBlank()) return null
+        "tg|$chatId|$messageId"
+    }.getOrNull()
+}
+// TG-END
+
+// TG-START: primary cache key incl. episode scope (re-apply on upstream merge)
+private fun buildPrimaryStreamCacheKey(
+    contentType: String,
+    videoId: String,
+    contentId: String?,
+    season: Int?,
+    episode: Int?
+): String {
+    val normalizedType = contentType.lowercase().trim()
+    val normalizedVideoId = videoId.trim()
+    val normalizedContentId = contentId?.trim().orEmpty()
+    if (normalizedType.isBlank()) return normalizedVideoId
+
+    val scopedEpisodeKey = if (season != null && episode != null && normalizedContentId.isNotBlank()) {
+        "$normalizedType|$normalizedContentId:$season:$episode"
+    } else {
+        ""
+    }
+    if (scopedEpisodeKey.isNotBlank()) return scopedEpisodeKey
+
+    if (normalizedContentId.isNotBlank()) return "$normalizedType|$normalizedContentId"
+    return "$normalizedType|$normalizedVideoId"
+}
+// TG-END
 
 private fun Stream.badgeMergeKey(): String {
     infoHash?.lowercase()?.let { hash -> return "$addonName|$hash:${fileIdx ?: ""}" }

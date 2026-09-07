@@ -33,6 +33,9 @@ data class StreamScreenUiState(
     val filteredStreams: List<Stream> = emptyList(),
     val availableAddons: List<String> = emptyList(),
     val sourceChips: List<SourceChipItem> = emptyList(),
+    // TG-START: preferred resume stream URL incl. TG scope match (re-apply on upstream merge)
+    val preferredResumeStreamUrl: String? = null,
+    // TG-END
     val autoPlayStream: Stream? = null,
     val autoPlayPlaybackInfo: StreamPlaybackInfo? = null,
     val error: String? = null,

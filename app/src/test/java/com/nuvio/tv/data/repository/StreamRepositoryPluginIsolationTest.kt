@@ -6,9 +6,15 @@ import com.nuvio.tv.core.debrid.LocalDebridAvailabilityService
 import com.nuvio.tv.core.network.NetworkResult
 import com.nuvio.tv.core.plugin.PluginManager
 import com.nuvio.tv.core.profile.ProfileManager
+// TG-START: Telegram ctor deps in harness (re-apply on upstream merge)
+import com.nuvio.tv.core.telegram.TelegramStreamProxy
+// TG-END
 import com.nuvio.tv.core.tmdb.TmdbService
 import com.nuvio.tv.data.local.DebridSettingsDataStore
 import com.nuvio.tv.data.remote.api.AddonApi
+// TG-START: Telegram ctor deps in harness (re-apply on upstream merge)
+import com.nuvio.tv.data.remote.api.TmdbApi
+// TG-END
 import com.nuvio.tv.data.remote.dto.StreamDto
 import com.nuvio.tv.data.remote.dto.StreamResponseDto
 import com.nuvio.tv.domain.model.Addon
@@ -18,6 +24,10 @@ import com.nuvio.tv.domain.model.DebridSettings
 import com.nuvio.tv.domain.model.RepositoryType
 import com.nuvio.tv.domain.model.ScraperInfo
 import com.nuvio.tv.domain.repository.AddonRepository
+// TG-START: Telegram ctor deps in harness (re-apply on upstream merge)
+import com.nuvio.tv.domain.repository.MetaRepository
+import com.nuvio.tv.domain.repository.TelegramRepository
+// TG-END
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -165,6 +175,13 @@ class StreamRepositoryPluginIsolationTest {
             firstArg<List<AddonStreams>>()
         }
 
+        // TG-START: Telegram ctor deps in harness (re-apply on upstream merge)
+        val telegramRepository = mockk<TelegramRepository>()
+        every { telegramRepository.isAvailable() } returns false
+        val metaRepository = mockk<MetaRepository>(relaxed = true)
+        val tmdbApi = mockk<TmdbApi>(relaxed = true)
+        // TG-END
+
         return Harness(
             repository = StreamRepositoryImpl(
                 context = mockk<Context>(relaxed = true),
@@ -175,7 +192,13 @@ class StreamRepositoryPluginIsolationTest {
                 debridSettingsDataStore = debridSettingsDataStore,
                 tmdbService = tmdbService,
                 debridStreamPresentation = presentation,
-                localDebridAvailabilityService = availability
+                localDebridAvailabilityService = availability,
+                // TG-START: Telegram ctor deps in harness (re-apply on upstream merge)
+                telegramRepository = telegramRepository,
+                telegramStreamProxy = mockk<TelegramStreamProxy>(relaxed = true),
+                metaRepository = metaRepository,
+                tmdbApi = tmdbApi
+                // TG-END
             ),
             api = api,
             tmdbService = tmdbService,

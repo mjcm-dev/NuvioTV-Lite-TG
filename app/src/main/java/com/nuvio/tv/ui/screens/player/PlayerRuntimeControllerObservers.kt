@@ -662,11 +662,16 @@ internal fun PlayerRuntimeController.fetchSkipIntervals(id: String?, season: Int
 
 internal fun PlayerRuntimeController.tryApplyPendingResumeProgress(player: Player) {
     val saved = pendingResumeProgress ?: return
+    // TG-START: keep pending resume while not seekable (TG progressive sources report
+    // seekability late; clearing here loses resume; re-apply on upstream merge)
     if (!player.isCurrentMediaItemSeekable) {
-        pendingResumeProgress = null
-        _uiState.update { it.copy(pendingSeekPosition = null) }
+        Log.d(
+            PlayerRuntimeController.TAG,
+            "tryApplyPendingResumeProgress: media item not seekable yet, keeping pending resume"
+        )
         return
     }
+    // TG-END
     val duration = player.duration
     val target = when {
         duration > 0L -> saved.resolveResumePosition(duration)

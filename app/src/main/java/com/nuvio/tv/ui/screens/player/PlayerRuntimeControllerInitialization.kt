@@ -535,6 +535,22 @@ internal fun PlayerRuntimeController.initializePlayer(
                     budgetBytes = budgetBytes,
                     allocator = allocator
                 ).also { currentBitrateAwareLoadControl = it }
+            // TG-START: dedicated LoadControl for Telegram loopback sources
+            // (conservative buffer for 1GB devices; re-apply on upstream merge)
+            } else if (url.safeHost() == "127.0.0.1") {
+                effectiveBackBufferDurationMs = 2_000
+                currentBitrateAwareLoadControl = null
+                Log.i(
+                    PlayerRuntimeController.TAG,
+                    "BUFFER_GATE: engine=exo-telegram; DefaultLoadControl (32MB/90s/2s back) host=${url.safeHost()}"
+                )
+                DefaultLoadControl.Builder()
+                    .setTargetBufferBytes(32 * 1024 * 1024)
+                    .setBufferDurationsMs(15_000, 90_000, 2_000, 3_000)
+                    .setPrioritizeTimeOverSizeThresholds(true)
+                    .setBackBuffer(2_000, /* retainBackBufferFromKeyframe = */ true)
+                    .build()
+            // TG-END
             } else if (MemoryBudget.isLowRamTier) {
                 // Byte cap is the device heap budget, not a flat number: a flat 48MB is 5s
                 // of an 80 Mbps remux, so the cap fired before minBufferMs and playback ran
