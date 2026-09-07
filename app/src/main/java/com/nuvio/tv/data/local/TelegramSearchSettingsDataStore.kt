@@ -71,6 +71,7 @@ class TelegramSearchSettingsDataStore @Inject constructor(
             prefs[seriesI18nEnabledKey] = enabled
         }
     }
+    // TG-END
 
     // TG-START: discard series files in movie searches (re-apply on upstream merge)
     val discardSeriesInMovies: StateFlow<Boolean> =
