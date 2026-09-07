@@ -206,7 +206,12 @@ class TelegramRepositoryImpl @Inject constructor(
     }
 
     private fun buildCandidateTitles(titles: List<String>): List<String> {
-        return titles
+        // TG-START: subtitle-head variants ("Título: Subtítulo" -> "Título", re-apply on upstream merge)
+        val expanded = titles.flatMap { title ->
+            listOfNotNull(title, TelegramMediaParser.subtitleHeadVariant(title))
+        }
+        // TG-END
+        return expanded
             .filter { it.isNotBlank() }
             .distinctBy { TelegramMediaParser.normalizeForMatch(it) }
     }

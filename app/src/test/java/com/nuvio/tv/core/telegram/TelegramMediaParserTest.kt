@@ -94,6 +94,39 @@ class TelegramMediaParserTest {
         assertNull(parsed.episode)
     }
 
+    // TG-START: subtitle-head variants (re-apply on upstream merge)
+    @Test
+    fun `subtitle head keeps X-Files style heads`() {
+        assertEquals(
+            "Expediente X",
+            TelegramMediaParser.subtitleHeadVariant("Expediente X: Enfréntate al futuro")
+        )
+        assertEquals(
+            "The X Files",
+            TelegramMediaParser.subtitleHeadVariant("The X Files: Fight the Future")
+        )
+    }
+
+    @Test
+    fun `subtitle head keeps hyphenated words intact`() {
+        assertEquals(
+            "Spider-Man",
+            TelegramMediaParser.subtitleHeadVariant("Spider-Man: No Way Home")
+        )
+        assertEquals(
+            "Star Wars",
+            TelegramMediaParser.subtitleHeadVariant("Star Wars: Episode IV - A New Hope")
+        )
+    }
+
+    @Test
+    fun `subtitle head rejects missing or single-token heads`() {
+        assertNull(TelegramMediaParser.subtitleHeadVariant("Heat"))
+        assertNull(TelegramMediaParser.subtitleHeadVariant("Avatar: Fire and Ash"))
+        assertNull(TelegramMediaParser.subtitleHeadVariant("  "))
+    }
+    // TG-END
+
     // TG-START: non-localized series patterns (re-apply on upstream merge)
     @Test
     fun `non-localized keeps numeric patterns`() {

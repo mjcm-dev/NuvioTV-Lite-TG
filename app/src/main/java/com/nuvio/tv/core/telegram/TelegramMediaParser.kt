@@ -179,4 +179,24 @@ object TelegramMediaParser {
         normalizeForMatch(input)
             .split(' ')
             .filter { it.isNotEmpty() && it !in ARTICLES && it !in NOISE_WORDS }
+
+    /**
+     * Head of a "Title: Subtitle" style name ("Expediente X: Enfréntate al futuro"
+     * -> "Expediente X"). Files very often carry only the head, which can never
+     * reach the acceptance threshold against the long official title, so the head
+     * is searched and matched as an extra variant. Returns null when there is no
+     * subtitle part or the head is too short to be discriminative (single token).
+     * Only splits on colons/dashes that delimit a subtitle, never inside words
+     * ("Spider-Man" stays intact).
+     */
+    fun subtitleHeadVariant(title: String): String? {
+        val head = title
+            .split(Regex("""\s*[:–—]\s*|\s+-\s+"""))
+            .firstOrNull()
+            ?.trim()
+            .orEmpty()
+        if (head.isEmpty() || head.equals(title.trim(), ignoreCase = true)) return null
+        if (matchTokens(head).size < 2) return null
+        return head
+    }
 }
