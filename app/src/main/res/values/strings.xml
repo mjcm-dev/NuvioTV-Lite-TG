@@ -650,6 +650,8 @@
     <string name="telegram_search_advanced_movies_title">Advanced search for movies</string>
     <string name="telegram_search_i18n_movies_title">Internationalization</string>
     <string name="telegram_search_i18n_movies_subtitle">Also search with the original title, alternative titles and acronyms. Off: interface title only.</string>
+    <string name="telegram_search_discard_series_title">Discard series</string>
+    <string name="telegram_search_discard_series_subtitle">Reject files with season/episode markers in movie searches.</string>
     <string name="telegram_search_advanced_series_title">Advanced search for series</string>
     <string name="telegram_search_i18n_series_title">Internationalization</string>
     <string name="telegram_search_i18n_series_subtitle">Also search with the original title, alternative titles, acronyms and localized season/episode patterns. Off: interface title and numeric patterns only.</string>

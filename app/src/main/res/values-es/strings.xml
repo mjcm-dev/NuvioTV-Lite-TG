@@ -1091,6 +1091,8 @@
     <string name="telegram_search_advanced_movies_title">Búsqueda avanzada para películas</string>
     <string name="telegram_search_i18n_movies_title">Internacionalización</string>
     <string name="telegram_search_i18n_movies_subtitle">Buscar también con título original, alternativos y sigla. Desactivado: solo título de la interfaz.</string>
+    <string name="telegram_search_discard_series_title">Descartar series</string>
+    <string name="telegram_search_discard_series_subtitle">Rechaza archivos con marcadores de temporada/episodio en búsquedas de películas.</string>
     <string name="telegram_search_advanced_series_title">Búsqueda avanzada para series</string>
     <string name="telegram_search_i18n_series_title">Internacionalización</string>
     <string name="telegram_search_i18n_series_subtitle">Buscar también con título original, alternativos, sigla y patrones de temporada/episodio localizados. Desactivado: solo título de la interfaz y patrones numéricos.</string>

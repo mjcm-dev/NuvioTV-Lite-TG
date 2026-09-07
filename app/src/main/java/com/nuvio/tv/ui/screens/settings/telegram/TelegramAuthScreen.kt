@@ -70,9 +70,10 @@ fun TelegramAuthScreen(
 ) {
     val authState by viewModel.authState.collectAsState()
     val allowChannelContextSeriesMatch by viewModel.allowChannelContextSeriesMatch.collectAsState()
-    // TG-START: per-type i18n toggles under "Búsqueda TG" (re-apply on upstream merge)
+    // TG-START: search toggles under "Búsqueda TG" (re-apply on upstream merge)
     val moviesI18nEnabled by viewModel.moviesI18nEnabled.collectAsState()
     val seriesI18nEnabled by viewModel.seriesI18nEnabled.collectAsState()
+    val discardSeriesInMovies by viewModel.discardSeriesInMovies.collectAsState()
     // TG-END
 
     BackHandler { onBackPress() }
@@ -148,6 +149,16 @@ fun TelegramAuthScreen(
                         viewModel.setMoviesI18nEnabled(!moviesI18nEnabled)
                     }
                 )
+                // TG-START: discard series files in movie searches (re-apply on upstream merge)
+                SettingsToggleRow(
+                    title = stringResource(R.string.telegram_search_discard_series_title),
+                    subtitle = stringResource(R.string.telegram_search_discard_series_subtitle),
+                    checked = discardSeriesInMovies,
+                    onToggle = {
+                        viewModel.setDiscardSeriesInMovies(!discardSeriesInMovies)
+                    }
+                )
+                // TG-END
                 TgSearchSectionHeader(
                     text = stringResource(R.string.telegram_search_advanced_series_title)
                 )

@@ -432,6 +432,9 @@ class TelegramRepositoryImpl @Inject constructor(
         val normalizedFileName = TelegramMediaParser.normalizeForMatch(matchText)
         val hasImdbTag = normalizedImdbId != null && normalizedFileName.contains(normalizedImdbId)
         val allowChannelContextSeriesMatch = telegramSearchSettingsDataStore.allowChannelContextSeriesMatch.value
+        // TG-START: discard series files in movie searches (re-apply on upstream merge)
+        val discardSeriesInMovies = telegramSearchSettingsDataStore.discardSeriesInMovies.value
+        // TG-END
 
         val inferredEpisode = inferEpisodeFromBareNumber(matchText)
         val compactSeasonEpisode = if (fromFolderFallback && season != null) {
@@ -502,6 +505,22 @@ class TelegramRepositoryImpl @Inject constructor(
                 if (parsed.year != null && releaseYear != null &&
                     abs(parsed.year - releaseYear) > 1
                 ) return MatchOutcome.REJECTED_TITLE
+                // TG-START: discard series files in movie searches (re-apply on upstream merge)
+                // A series episode sharing the movie title (e.g. "Expediente X S06E03"
+                // when looking for the "Expediente X" film) is never a valid movie hit.
+                // Detection always uses full patterns, independent of the series i18n
+                // toggle: this is about what the file IS, not how series are searched.
+                if (discardSeriesInMovies &&
+                    (parsed.season != null || parsed.episode != null)
+                ) {
+                    Log.d(
+                        TAG,
+                        "Discard series file in movie search: ${extracted.fileName} " +
+                            "parsedS=${parsed.season ?: '-'} parsedE=${parsed.episode ?: '-'}"
+                    )
+                    return MatchOutcome.REJECTED_TITLE
+                }
+                // TG-END
             }
         }
 

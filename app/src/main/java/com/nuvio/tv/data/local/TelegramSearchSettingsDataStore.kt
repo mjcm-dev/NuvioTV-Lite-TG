@@ -37,6 +37,10 @@ class TelegramSearchSettingsDataStore @Inject constructor(
         booleanPreferencesKey("movies_i18n_enabled")
     private val seriesI18nEnabledKey =
         booleanPreferencesKey("series_i18n_enabled")
+    // TG-START: discard series files in movie searches (re-apply on upstream merge)
+    private val discardSeriesInMoviesKey =
+        booleanPreferencesKey("discard_series_in_movies")
+    // TG-END
 
     val allowChannelContextSeriesMatch: StateFlow<Boolean> =
         booleanSetting(allowChannelContextSeriesMatchKey)
@@ -65,6 +69,16 @@ class TelegramSearchSettingsDataStore @Inject constructor(
     suspend fun setSeriesI18nEnabled(enabled: Boolean) {
         store().edit { prefs ->
             prefs[seriesI18nEnabledKey] = enabled
+        }
+    }
+
+    // TG-START: discard series files in movie searches (re-apply on upstream merge)
+    val discardSeriesInMovies: StateFlow<Boolean> =
+        booleanSetting(discardSeriesInMoviesKey)
+
+    suspend fun setDiscardSeriesInMovies(enabled: Boolean) {
+        store().edit { prefs ->
+            prefs[discardSeriesInMoviesKey] = enabled
         }
     }
     // TG-END

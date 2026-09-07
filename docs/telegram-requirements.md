@@ -44,6 +44,7 @@ Permitir al usuario vincular y desvincular su cuenta personal de Telegram para h
 - **TG-AUTH-8 — Ajustes de búsqueda siempre visibles.** La sección “Búsqueda TG” debe mostrarse haya o no sesión, porque afecta a búsquedas futuras. Estructura:
   - **Búsqueda avanzada para películas** (cabecera)
     - **Internacionalización** (interruptor, por defecto ACTIVADO)
+    - **Descartar series** (interruptor, por defecto ACTIVADO): rechaza archivos con marcadores de temporada/episodio en búsquedas de películas (p. ej. el episodio `S06E03` cuando se busca la película del mismo título).
   - **Búsqueda avanzada para series** (cabecera)
     - **Internacionalización** (interruptor, por defecto ACTIVADO)
     - **Canal/Carpeta con solo episodios** (interruptor, por defecto ACTIVADO; ver sección 6)
