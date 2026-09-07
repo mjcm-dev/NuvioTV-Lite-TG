@@ -93,4 +93,38 @@ class TelegramMediaParserTest {
         assertNull(parsed.season)
         assertNull(parsed.episode)
     }
+
+    // TG-START: non-localized series patterns (re-apply on upstream merge)
+    @Test
+    fun `non-localized keeps numeric patterns`() {
+        val parsed = TelegramMediaParser.parse("Perdidos S06E03 1080p.mkv", localized = false)
+
+        assertEquals(6, parsed.season)
+        assertEquals(3, parsed.episode)
+    }
+
+    @Test
+    fun `non-localized keeps NxNN and bare E patterns`() {
+        val xPattern = TelegramMediaParser.parse("Serie 6x03.mkv", localized = false)
+        assertEquals(6, xPattern.season)
+        assertEquals(3, xPattern.episode)
+
+        val ePattern = TelegramMediaParser.parse("Serie E05.mkv", localized = false)
+        assertEquals(5, ePattern.episode)
+    }
+
+    @Test
+    fun `non-localized drops word-based patterns`() {
+        val temporada = TelegramMediaParser.parse(
+            "Cuéntame cómo pasó Temporada 24 Capítulo 3.mp4",
+            localized = false
+        )
+        assertNull(temporada.season)
+        assertNull(temporada.episode)
+
+        val compact = TelegramMediaParser.parse("Mujeres.T1.E05.mp4", localized = false)
+        assertNull(compact.season)
+        assertEquals(5, compact.episode)
+    }
+    // TG-END
 }

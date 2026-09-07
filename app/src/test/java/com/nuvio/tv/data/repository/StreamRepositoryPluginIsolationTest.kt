@@ -180,6 +180,7 @@ class StreamRepositoryPluginIsolationTest {
         every { telegramRepository.isAvailable() } returns false
         val metaRepository = mockk<MetaRepository>(relaxed = true)
         val tmdbApi = mockk<TmdbApi>(relaxed = true)
+        val telegramSearchSettingsDataStore = mockk<com.nuvio.tv.data.local.TelegramSearchSettingsDataStore>(relaxed = true)
         // TG-END
 
         return Harness(
@@ -197,7 +198,8 @@ class StreamRepositoryPluginIsolationTest {
                 telegramRepository = telegramRepository,
                 telegramStreamProxy = mockk<TelegramStreamProxy>(relaxed = true),
                 metaRepository = metaRepository,
-                tmdbApi = tmdbApi
+                tmdbApi = tmdbApi,
+                telegramSearchSettingsDataStore = telegramSearchSettingsDataStore
                 // TG-END
             ),
             api = api,

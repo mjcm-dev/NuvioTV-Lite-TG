@@ -70,6 +70,10 @@ fun TelegramAuthScreen(
 ) {
     val authState by viewModel.authState.collectAsState()
     val allowChannelContextSeriesMatch by viewModel.allowChannelContextSeriesMatch.collectAsState()
+    // TG-START: per-type i18n toggles under "Búsqueda TG" (re-apply on upstream merge)
+    val moviesI18nEnabled by viewModel.moviesI18nEnabled.collectAsState()
+    val seriesI18nEnabled by viewModel.seriesI18nEnabled.collectAsState()
+    // TG-END
 
     BackHandler { onBackPress() }
 
@@ -128,10 +132,33 @@ fun TelegramAuthScreen(
             }
 
             Spacer(Modifier.height(20.dp))
+            // TG-START: "Búsqueda TG" hierarchy (re-apply on upstream merge)
             SettingsGroupCard(
                 modifier = Modifier.fillMaxWidth(),
                 title = stringResource(R.string.telegram_search_group_title)
             ) {
+                TgSearchSectionHeader(
+                    text = stringResource(R.string.telegram_search_advanced_movies_title)
+                )
+                SettingsToggleRow(
+                    title = stringResource(R.string.telegram_search_i18n_movies_title),
+                    subtitle = stringResource(R.string.telegram_search_i18n_movies_subtitle),
+                    checked = moviesI18nEnabled,
+                    onToggle = {
+                        viewModel.setMoviesI18nEnabled(!moviesI18nEnabled)
+                    }
+                )
+                TgSearchSectionHeader(
+                    text = stringResource(R.string.telegram_search_advanced_series_title)
+                )
+                SettingsToggleRow(
+                    title = stringResource(R.string.telegram_search_i18n_series_title),
+                    subtitle = stringResource(R.string.telegram_search_i18n_series_subtitle),
+                    checked = seriesI18nEnabled,
+                    onToggle = {
+                        viewModel.setSeriesI18nEnabled(!seriesI18nEnabled)
+                    }
+                )
                 SettingsToggleRow(
                     title = stringResource(R.string.telegram_search_channel_context_title),
                     subtitle = stringResource(R.string.telegram_search_channel_context_subtitle),
@@ -141,6 +168,7 @@ fun TelegramAuthScreen(
                     }
                 )
             }
+            // TG-END
 
             Spacer(Modifier.height(24.dp))
             OutlinedButton(onClick = onBackPress) {
@@ -159,6 +187,20 @@ private fun StatusText(message: String) {
         textAlign = TextAlign.Center
     )
 }
+
+// TG-START: "Búsqueda TG" hierarchy (re-apply on upstream merge)
+@Composable
+private fun TgSearchSectionHeader(text: String) {
+    Text(
+        text = text.uppercase(),
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 14.dp, top = 6.dp, bottom = 2.dp)
+    )
+}
+// TG-END
 
 @Composable
 private fun QrPanel(link: String, onBackPress: () -> Unit) {

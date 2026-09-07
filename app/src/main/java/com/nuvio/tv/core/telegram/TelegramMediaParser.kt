@@ -27,15 +27,23 @@ object TelegramMediaParser {
     private const val MAX_EPISODE = 2000
 
     // Ordered by specificity: the first match wins and marks where the title ends.
-    private val SEASON_EPISODE_PATTERNS = listOf(
+    // Numeric patterns first (locale-neutral); word-based ones only when localized.
+    private val SEASON_EPISODE_PATTERNS_NUMERIC = listOf(
         Regex("""(?:^|[^A-Za-z0-9])S(\d{1,2})[\s._-]?E(\d{1,4})(?![0-9])""", RegexOption.IGNORE_CASE),
-        Regex("""(?<![0-9])(\d{1,2})[xX](\d{1,4})(?![0-9p])"""),
+        Regex("""(?<![0-9])(\d{1,2})[xX](\d{1,4})(?![0-9p])""")
+    )
+
+    private val SEASON_EPISODE_PATTERNS_LOCALIZED = listOf(
         Regex("""Temporada\s+(\d{1,3})[^A-Za-z0-9]{0,20}(?:Cap[ií]tulo|Episodio|\bEp\b|\bCap\b)\s*(\d{1,4})""", RegexOption.IGNORE_CASE),
         Regex("""(?:^|[^A-Za-z0-9])T(\d{1,2})[\s._-]*E(\d{1,4})(?![0-9])""", RegexOption.IGNORE_CASE)
     )
 
     private val EPISODE_ONLY_PATTERNS = listOf(
         Regex("""(?:^|[^A-Za-z0-9])(?:E|Ep|Episodio|Cap|Capitulo|Capítulo)[\s._-]{0,3}(\d{1,4})(?![0-9])""", RegexOption.IGNORE_CASE)
+    )
+
+    private val EPISODE_ONLY_PATTERNS_NUMERIC = listOf(
+        Regex("""(?:^|[^A-Za-z0-9])E[\s._-]{0,3}(\d{1,4})(?![0-9])""", RegexOption.IGNORE_CASE)
     )
 
     private val QUALITY_PATTERN =
@@ -60,13 +68,21 @@ object TelegramMediaParser {
         "the", "a", "an", "de", "del", "al", "of", "and", "y"
     )
 
-    /** Parses a document/file name into structured media info. */
-    fun parse(rawName: String): Parsed {
+    /**
+     * Parses a document/file name into structured media info.
+     * @param localized when false, only numeric patterns (SxxExx, NxNN, Exx)
+     * are recognized; word-based ones (Temporada/Capítulo/Season/Episode/T..E..)
+     * belong to the series i18n machinery.
+     */
+    fun parse(rawName: String, localized: Boolean = true): Parsed {
         val withoutExtension = rawName.substringBeforeLast('.', rawName)
             .replace('_', ' ')
             .replace('.', ' ')
 
-        val serMatch = SEASON_EPISODE_PATTERNS.firstNotNullOfOrNull { it.find(withoutExtension) }
+        val seasonEpisodePatterns =
+            if (localized) SEASON_EPISODE_PATTERNS_NUMERIC + SEASON_EPISODE_PATTERNS_LOCALIZED
+            else SEASON_EPISODE_PATTERNS_NUMERIC
+        val serMatch = seasonEpisodePatterns.firstNotNullOfOrNull { it.find(withoutExtension) }
         var season: Int? = null
         var episode: Int? = null
         var titleSource = withoutExtension
@@ -87,7 +103,9 @@ object TelegramMediaParser {
                 }
             }
         } else {
-            val epMatch = EPISODE_ONLY_PATTERNS.firstNotNullOfOrNull { it.find(withoutExtension) }
+            val episodeOnlyPatterns =
+                if (localized) EPISODE_ONLY_PATTERNS else EPISODE_ONLY_PATTERNS_NUMERIC
+            val epMatch = episodeOnlyPatterns.firstNotNullOfOrNull { it.find(withoutExtension) }
             val ep = epMatch?.groupValues?.getOrNull(1)?.toIntOrNull()?.takeIf { it in 1..MAX_EPISODE }
             if (ep != null) {
                 episode = ep

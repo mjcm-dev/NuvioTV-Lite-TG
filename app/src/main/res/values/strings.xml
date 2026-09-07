@@ -647,8 +647,14 @@
     <string name="telegram_password_prompt">Enter your two-step verification password</string>
     <string name="telegram_password_placeholder">Password</string>
     <string name="telegram_search_group_title">Telegram search</string>
-    <string name="telegram_search_channel_context_title">Use channel title for series match</string>
-    <string name="telegram_search_channel_context_subtitle">When filenames do not include the series title, match episodes using channel title + season/episode markers.</string>
+    <string name="telegram_search_advanced_movies_title">Advanced search for movies</string>
+    <string name="telegram_search_i18n_movies_title">Internationalization</string>
+    <string name="telegram_search_i18n_movies_subtitle">Also search with the original title, alternative titles and acronyms. Off: interface title only.</string>
+    <string name="telegram_search_advanced_series_title">Advanced search for series</string>
+    <string name="telegram_search_i18n_series_title">Internationalization</string>
+    <string name="telegram_search_i18n_series_subtitle">Also search with the original title, alternative titles, acronyms and localized season/episode patterns. Off: interface title and numeric patterns only.</string>
+    <string name="telegram_search_channel_context_title">Channel/Folder with episodes only</string>
+    <string name="telegram_search_channel_context_subtitle">When filenames do not include the series title, match episodes using channel or folder title + season/episode markers.</string>
     <!-- TG-END -->
     <string name="action_close">Close</string>
 

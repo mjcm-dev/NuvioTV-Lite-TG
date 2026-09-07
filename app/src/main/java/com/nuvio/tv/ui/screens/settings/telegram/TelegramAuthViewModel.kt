@@ -20,6 +20,12 @@ class TelegramAuthViewModel @Inject constructor(
     val authState: StateFlow<TelegramAuthState> = clientManager.authState
     val allowChannelContextSeriesMatch: StateFlow<Boolean> =
         telegramSearchSettingsDataStore.allowChannelContextSeriesMatch
+    // TG-START: per-type i18n toggles under "Búsqueda TG" (re-apply on upstream merge)
+    val moviesI18nEnabled: StateFlow<Boolean> =
+        telegramSearchSettingsDataStore.moviesI18nEnabled
+    val seriesI18nEnabled: StateFlow<Boolean> =
+        telegramSearchSettingsDataStore.seriesI18nEnabled
+    // TG-END
 
     fun initialize() = clientManager.initialize()
 
@@ -36,6 +42,20 @@ class TelegramAuthViewModel @Inject constructor(
             telegramSearchSettingsDataStore.setAllowChannelContextSeriesMatch(enabled)
         }
     }
+
+    // TG-START: per-type i18n toggles under "Búsqueda TG" (re-apply on upstream merge)
+    fun setMoviesI18nEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            telegramSearchSettingsDataStore.setMoviesI18nEnabled(enabled)
+        }
+    }
+
+    fun setSeriesI18nEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            telegramSearchSettingsDataStore.setSeriesI18nEnabled(enabled)
+        }
+    }
+    // TG-END
 
     fun unbind() {
         viewModelScope.launch { clientManager.unbind() }

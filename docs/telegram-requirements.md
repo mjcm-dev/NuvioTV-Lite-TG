@@ -41,7 +41,13 @@ Permitir al usuario vincular y desvincular su cuenta personal de Telegram para h
 - **TG-AUTH-5 — Sin sesión no hay búsqueda.** Sin sesión válida, cualquier búsqueda TG devuelve lista vacía de forma silenciosa, sin error ni crash.
 - **TG-AUTH-6 — Desvincular borra todo.** Desvincular debe cerrar sesión en Telegram y borrar todo rastro local (sesión + ficheros descargados), volviendo al estado inicial “no vinculada”.
 - **TG-AUTH-7 — Errores terminales no reintentan en bucle.** Un fallo terminal de inicialización no debe reintentarse solo; requiere reentrar a la pantalla, desvincular o reiniciar la app.
-- **TG-AUTH-8 — Ajuste de búsqueda siempre visible.** El interruptor “Usar título del canal para series” (ver sección 6) debe mostrarse haya o no sesión, porque afecta a búsquedas futuras.
+- **TG-AUTH-8 — Ajustes de búsqueda siempre visibles.** La sección “Búsqueda TG” debe mostrarse haya o no sesión, porque afecta a búsquedas futuras. Estructura:
+  - **Búsqueda avanzada para películas** (cabecera)
+    - **Internacionalización** (interruptor, por defecto ACTIVADO)
+  - **Búsqueda avanzada para series** (cabecera)
+    - **Internacionalización** (interruptor, por defecto ACTIVADO)
+    - **Canal/Carpeta con solo episodios** (interruptor, por defecto ACTIVADO; ver sección 6)
+- Todos los interruptores son por perfil.
 
 ### 1.3 Criterios de aceptación
 
@@ -130,11 +136,13 @@ Devolver ficheros de vídeo reproducibles que correspondan a la película pedida
 
 ### 5.2 Peticiones
 
+- **TG-MOVIE-0 — Interruptor de internacionalización.** Si está desactivado, la semilla es mínima (“como NuvioTV”): solo el título de la interfaz (metadatos del addon) + año + `imdbId`, sin expansión TMDB. El resto de esta sección describe el modo activado (por defecto).
 - **TG-MOVIE-1 — Semillas de títulos.** Construir la lista de títulos candidatos en este orden de preferencia: datos TMDB (detalles + títulos alternativos + IDs externos), metadatos cacheados del addon, metadatos del addon primario. Si el idioma preferido no es inglés, añadir además los títulos en inglés. Incluir siempre `títulos + año + imdbId` cuando se conozcan. Normalizar IDs tipo `tt...:temporada:episodio` a `tt...` antes de cualquier lookup.
+- **TG-MOVIE-1b — Variante regional España vs Latinoamérica.** Cuando la interfaz esté en español, resolver el bloque (España o Latinoamérica) por esta cadena: idioma fijado en la app → país del locale del sistema → si el locale no trae país (`es` a secas), desempate por timezone (zonas `Europe` → España, zonas `America` → LatAm; `es-US` → LatAm). Pedir a TMDB `es-ES` para España y `es-MX` para LatAm (son las únicas traducciones al español que TMDB ofrece), y priorizar alternativos del bloque propio. **La query lleva siempre ambas variantes; la región solo ordena el ranking** (ver TG-MOVIE-5).
 - **TG-MOVIE-2 — Términos de consulta.** Consultar hasta ~6 títulos candidatos con un máximo de ~14 términos. Variantes por título: base, acrónimo (iniciales, 2–8 letras; p. ej. título multi-palabra → sigla), sin año, sin marcador de secuela al final (`2`, `II`, `Part 2`), tokens normalizados sin palabras vacías ES/EN más los últimos 2 tokens. Si hay `imdbId` válido (`tt` + 7–9 dígitos), intercalar `variante + imdb` y añadir el `imdb` solo al final. Buscar tanto en mensajes con documento como con vídeo, con límite alto por consulta y corte en el top ~40 global.
 - **TG-MOVIE-3 — Filtros duros.** Solo mensajes de documento/vídeo con nombre de fichero no vacío y tamaño > 0. Rechazar no-vídeo (ebooks, cómics, documentos: `cbz/cbr/pdf/epub/mobi/azw…`). Aceptar extensiones de vídeo (`mkv/mp4/avi/mov/wmv/flv/webm/m4v/mpg/mpeg/m2ts/ts/3gp`) o `mime video/*`. Rechazar archivos partidos (`*.7z.001`, `*.002`…) como no reproducibles. Tamaño mínimo recomendado: 50 MB para películas.
 - **TG-MOVIE-4 — Aceptación por título.** Rechazar si los años conocidos difieren en más de 1. Aceptar si la puntuación de título ≥ 0.70, o el fichero menciona el `imdbId`, o la consulta era solo `imdbId`. Bonificar cuando el fichero menciona el `imdbId`. La puntuación combina solape de tokens (con sinónimos ES/EN como hombre/man, etc.) y similitud de texto, penalizando tokens extra.
-- **TG-MOVIE-5 — Orden.** Puntuación descendente, preferencia de idioma (castellano de España > español genérico > latam > dual ES/EN > dual > inglés), calidad (`4K > 1080 > 720 > …`), tamaño.
+- **TG-MOVIE-5 — Orden.** Puntuación descendente, preferencia de idioma según bloque: España (castellano de España > español genérico > latam > dual ES/EN > dual > inglés), Latinoamérica (latino > español genérico > castellano > dual ES/EN > dual > inglés), resto como antes; calidad (`4K > 1080 > 720 > …`), tamaño.
 - **TG-MOVIE-6 — Sin temporada/episodio.** Las películas no usan términos S/E, ni contexto de canal, ni fallback por canal.
 
 ### 5.3 Criterios de aceptación
@@ -153,11 +161,12 @@ Incluye todo lo de películas, más lo siguiente.
 
 ### 6.1 Peticiones
 
+- **TG-SERIES-0 — Interruptor de internacionalización.** Si está desactivado: semilla mínima como en TG-MOVIE-0 y patrones solo numéricos (`S06E03`, `6x03`, `E05`); quedan fuera los patrones con palabras (`Temporada/Capítulo`, `Season/Episode`, `T02E05`, `Ep 5`, `Cap 5`). El resto de esta sección describe el modo activado (por defecto).
 - **TG-SERIES-1 — Términos con episodio.** Hasta ~18 términos cuando hay temporada/episodio. Términos S/E: `S02E05`, `S2E5`, `2x05`, `02x05`, `E05`, `Ep 5`, `Cap 5` (más `T02E05` en fallback por canal). Reforzar con combinaciones `3 títulos × 3 términos [+imdb]` y variantes `“título + término S/E”`.
 - **TG-SERIES-2 — Formatos reconocidos.** Reconocer `S06E03`/`S6E3`, `6x03`/`12x09` **sin** confundir `720p`/`1080p` con episodio, `Temporada X Capítulo/Episodio Y`, `T02E05`, y `E/Ep/Cap N` suelto. Límites razonables (temporada ≤ 100, episodio ≤ 2000). Extraer además calidad (`480/720/1080/2160p` + `4k`) y año (último `19xx/20xx`).
 - **TG-SERIES-3 — Tamaño mínimo recomendado:** 20 MB para series (menor que películas porque un episodio pesa menos).
 - **TG-SERIES-4 — Temporada/episodio obligatorios.** La temporada/episodio efectivos (parseados del nombre, o número suelto 1–200, o token compacto de 3–4 dígitos solo en fallback) deben igualar lo pedido. Si falta o no coincide → descartar con motivo `missing/mismatch season/episode`. En fallback por canal se permite relajar la temporada solo si hay token de temporada o token exacto + episodio correcto.
-- **TG-SERIES-5 — Contexto de canal (interruptor, por defecto ACTIVADO por perfil).** Si el nombre de archivo no trae el título pero sí marcador S/E, aceptar usando el título del canal cuando su puntuación ≥ 0.70 (con bonificación acotada). El fallback por canal solo se ejecuta si hay 0 resultados **y** el interruptor está activado **y** hay S/E pedido: buscar chats candidatos (límite ~24), escanear historial paginado (~80 mensajes × ~80 páginas), umbral estricto inicial ~0.72 con reintento relajado ~0.58. Excepción: token exacto pedido + chat ≥ 0.58 → aceptar con puntuación base 0.70.
+- **TG-SERIES-5 — Canal/Carpeta con solo episodios (interruptor, por defecto ACTIVADO por perfil).** Si el nombre de archivo no trae el título pero sí marcador S/E, aceptar usando el título del canal o carpeta cuando su puntuación ≥ 0.70 (con bonificación acotada). El fallback por canal solo se ejecuta si hay 0 resultados **y** el interruptor está activado **y** hay S/E pedido: buscar chats candidatos (límite ~24), escanear historial paginado (~80 mensajes × ~80 páginas), umbral estricto inicial ~0.72 con reintento relajado ~0.58. Excepción: token exacto pedido + chat ≥ 0.58 → aceptar con puntuación base 0.70.
 - **TG-SERIES-6 — Diagnóstico acotado.** Guardar una muestra acotada de descartes S/E (motivo, término, puntuación de canal, fichero, pedido vs parseado) y registrarla acotada en log. No guardar todo.
 
 ### 6.2 Criterios de aceptación
@@ -187,3 +196,5 @@ Incluye todo lo de películas, más lo siguiente.
 - Resume: mismo chat/mensaje con fichero distinto → prioriza; mensaje distinto → no.
 - Películas: título de 1 palabra con ruido, título localizado + original + sigla + `imdbId`.
 - Series: `S01E01`, `S03E10`, `S06E03`; patrón `NxNN` al inicio del nombre; `720p` no es episodio; solo comprimidos → 0.
+- Región ES/LatAm: con interfaz `es-ES` prioriza variante peninsular; con `es-MX`/`es-AR`/`es`+timezone americano prioriza latina; la query contiene ambas en los dos casos.
+- Toggles: i18n OFF en pelis → solo título UI; i18n OFF en series → sin `Temporada/Capítulo` ni `T02E05`; canal/carpeta OFF → sin contexto ni fallback.
