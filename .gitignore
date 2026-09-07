@@ -62,4 +62,8 @@ logs
 AGENTS.md
 /PR.md
 docs/
+!docs/
+docs/*
+!docs/telegram-requirements.md
+!docs/telegram-release-strategy.md
 status-page/
