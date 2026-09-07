@@ -88,6 +88,10 @@ class TelegramRepositoryImpl @Inject constructor(
         var rejectedSize = 0
         var rejectedTitle = 0
         var rejectedSeasonEpisode = 0
+        // TG-START: dedicated series-discard outcome for movie searches (re-apply on upstream merge)
+        var rejectedSeries = 0
+        val titleRejectSamples = mutableListOf<String>()
+        // TG-END
         var duplicates = 0
 
         // TG-START: series i18n toggle gates localized S/E patterns (re-apply on upstream merge)
@@ -127,13 +131,19 @@ class TelegramRepositoryImpl @Inject constructor(
                         fallbackChatTitleScore = null,
                         seRejectSamples = seRejectSamples,
                         // TG-START: series i18n toggle gates localized S/E patterns (re-apply on upstream merge)
-                        localizedSeriesPatterns = localizedSeriesPatterns
+                        localizedSeriesPatterns = localizedSeriesPatterns,
+                        // TG-END
+                        // TG-START: bounded title-reject filename samples for diagnosis (re-apply on upstream merge)
+                        titleRejectSamples = titleRejectSamples
                         // TG-END
                     )) {
                         MatchOutcome.ACCEPTED -> Unit
                         MatchOutcome.DUPLICATE -> duplicates++
                         MatchOutcome.REJECTED_SIZE -> rejectedSize++
                         MatchOutcome.REJECTED_TITLE -> rejectedTitle++
+                        // TG-START: dedicated series-discard outcome for movie searches (re-apply on upstream merge)
+                        MatchOutcome.REJECTED_SERIES -> rejectedSeries++
+                        // TG-END
                         MatchOutcome.REJECTED_SEASON_EPISODE -> {
                             rejectedSeasonEpisode++
                             if (fallbackSeedChatIds.size < FOLDER_FALLBACK_CHAT_SEARCH_LIMIT) {
@@ -171,6 +181,9 @@ class TelegramRepositoryImpl @Inject constructor(
             rejectedSize += fallback.rejectedSize
             rejectedTitle += fallback.rejectedTitle
             rejectedSeasonEpisode += fallback.rejectedSeasonEpisode
+            // TG-START: dedicated series-discard outcome for movie searches (re-apply on upstream merge)
+            rejectedSeries += fallback.rejectedSeries
+            // TG-END
             duplicates += fallback.duplicates
             Log.i(
                 TAG,
@@ -183,12 +196,24 @@ class TelegramRepositoryImpl @Inject constructor(
         // TG-START: region bucket orders ES vs LatAm variants (re-apply on upstream merge)
         val region = resolveRegion()
         // TG-END
+        // TG-START: candidate titles + series-discard + reject samples at INFO (re-apply on upstream merge)
+        Log.i(TAG, "Telegram candidates: ${candidateTitles.take(8)}")
+        // TG-END
         Log.i(
             TAG,
             "Telegram search \"${candidateTitles.first()}\" S=${season ?: '-'} E=${episode ?: '-'}: " +
                 "found=$totalFound accepted=${results.size} " +
-                "(size=$rejectedSize title=$rejectedTitle se=$rejectedSeasonEpisode dup=$duplicates)"
+                // TG-START: dedicated series-discard outcome for movie searches (re-apply on upstream merge)
+                "(size=$rejectedSize title=$rejectedTitle series=$rejectedSeries se=$rejectedSeasonEpisode dup=$duplicates)"
+                // TG-END
         )
+        // TG-START: bounded title-reject filename samples for diagnosis (re-apply on upstream merge)
+        if (titleRejectSamples.isNotEmpty()) {
+            titleRejectSamples.take(8).forEachIndexed { index, sample ->
+                Log.i(TAG, "TITLE_REJECT_SAMPLE[$index] $sample")
+            }
+        }
+        // TG-END
         if (seRejectSamples.isNotEmpty()) {
             seRejectSamples.take(12).forEachIndexed { index, sample ->
                 Log.d(TAG, "SE_REJECT_SAMPLE[$index] $sample")
@@ -211,7 +236,15 @@ class TelegramRepositoryImpl @Inject constructor(
             listOfNotNull(title, TelegramMediaParser.subtitleHeadVariant(title))
         }
         // TG-END
-        return expanded
+        // TG-START: acronyms as matchable titles, min 3 letters (re-apply on upstream merge)
+        // Files named just "MIB" can otherwise never reach the threshold; 2-letter
+        // acronyms ("EX") are excluded — they over-match unrelated short names.
+        val withAcronyms = expanded.flatMap { title ->
+            val acronym = titleAcronym(title)?.takeIf { it.length >= 3 }
+            listOfNotNull(title, acronym)
+        }
+        // TG-END
+        return withAcronyms
             .filter { it.isNotBlank() }
             .distinctBy { TelegramMediaParser.normalizeForMatch(it) }
     }
@@ -275,7 +308,9 @@ class TelegramRepositoryImpl @Inject constructor(
         val variants = LinkedHashSet<String>()
         variants += base
 
-        titleAcronym(base)?.let { variants += it }
+        // TG-START: 2-letter acronyms flood TDLib with noise (re-apply on upstream merge)
+        titleAcronym(base)?.takeIf { it.length >= 3 }?.let { variants += it }
+        // TG-END
 
         val withoutYear = base.replace(Regex("""\b(19|20)\d{2}\b"""), " ")
             .replace(Regex("""\s+"""), " ")
@@ -394,7 +429,9 @@ class TelegramRepositoryImpl @Inject constructor(
         return dedup.toList()
     }
 
-    private enum class MatchOutcome { ACCEPTED, DUPLICATE, REJECTED_SIZE, REJECTED_TITLE, REJECTED_SEASON_EPISODE }
+    // TG-START: dedicated series-discard outcome for movie searches (re-apply on upstream merge)
+    private enum class MatchOutcome { ACCEPTED, DUPLICATE, REJECTED_SIZE, REJECTED_TITLE, REJECTED_SEASON_EPISODE, REJECTED_SERIES }
+    // TG-END
 
     private suspend fun addToResultsIfMatch(
         message: TdApi.Message,
@@ -412,7 +449,10 @@ class TelegramRepositoryImpl @Inject constructor(
         fallbackChatTitleScore: Double?,
         seRejectSamples: MutableList<String>,
         // TG-START: series i18n toggle gates localized S/E patterns (re-apply on upstream merge)
-        localizedSeriesPatterns: Boolean = true
+        localizedSeriesPatterns: Boolean = true,
+        // TG-END
+        // TG-START: bounded title-reject filename samples for diagnosis (re-apply on upstream merge)
+        titleRejectSamples: MutableList<String>? = null
         // TG-END
     ): MatchOutcome {
         val extracted = extractFile(message) ?: return MatchOutcome.REJECTED_SIZE
@@ -523,7 +563,7 @@ class TelegramRepositoryImpl @Inject constructor(
                         "Discard series file in movie search: ${extracted.fileName} " +
                             "parsedS=${parsed.season ?: '-'} parsedE=${parsed.episode ?: '-'}"
                     )
-                    return MatchOutcome.REJECTED_TITLE
+                    return MatchOutcome.REJECTED_SERIES
                 }
                 // TG-END
             }
@@ -532,6 +572,13 @@ class TelegramRepositoryImpl @Inject constructor(
         val score = TelegramTitleMatcher.bestScore(titles, parsed.cleanTitle)
         var channelContextScore = 0.0
         val titleAccepted = isImdbOnlyQuery || hasImdbTag || score >= MATCH_THRESHOLD
+        // TG-START: bounded title-reject filename samples for diagnosis (re-apply on upstream merge)
+        if (!titleAccepted && titleRejectSamples != null && titleRejectSamples.size < 8) {
+            titleRejectSamples +=
+                "score=${"%.2f".format(Locale.US, score)} file=${extracted.fileName} " +
+                    "clean=${parsed.cleanTitle} year=${parsed.year ?: '-'}"
+        }
+        // TG-END
         if (!titleAccepted) {
             val isSeries = type.equals("series", ignoreCase = true)
             val hasRequestedEpisode = season != null || episode != null
@@ -711,6 +758,9 @@ class TelegramRepositoryImpl @Inject constructor(
         val rejectedSize: Int = 0,
         val rejectedTitle: Int = 0,
         val rejectedSeasonEpisode: Int = 0,
+        // TG-START: dedicated series-discard outcome for movie searches (re-apply on upstream merge)
+        val rejectedSeries: Int = 0,
+        // TG-END
         val duplicates: Int = 0
     )
 
@@ -798,6 +848,9 @@ class TelegramRepositoryImpl @Inject constructor(
                                 MatchOutcome.DUPLICATE -> localStats.copy(found = localStats.found + 1, duplicates = localStats.duplicates + 1)
                                 MatchOutcome.REJECTED_SIZE -> localStats.copy(found = localStats.found + 1, rejectedSize = localStats.rejectedSize + 1)
                                 MatchOutcome.REJECTED_TITLE -> localStats.copy(found = localStats.found + 1, rejectedTitle = localStats.rejectedTitle + 1)
+                                // TG-START: dedicated series-discard outcome for movie searches (re-apply on upstream merge)
+                                MatchOutcome.REJECTED_SERIES -> localStats.copy(found = localStats.found + 1, rejectedSeries = localStats.rejectedSeries + 1)
+                                // TG-END
                                 MatchOutcome.REJECTED_SEASON_EPISODE -> localStats.copy(found = localStats.found + 1, rejectedSeasonEpisode = localStats.rejectedSeasonEpisode + 1)
                             }
                         }
@@ -849,6 +902,9 @@ class TelegramRepositoryImpl @Inject constructor(
                             MatchOutcome.DUPLICATE -> localStats.copy(found = localStats.found + 1, duplicates = localStats.duplicates + 1)
                             MatchOutcome.REJECTED_SIZE -> localStats.copy(found = localStats.found + 1, rejectedSize = localStats.rejectedSize + 1)
                             MatchOutcome.REJECTED_TITLE -> localStats.copy(found = localStats.found + 1, rejectedTitle = localStats.rejectedTitle + 1)
+                            // TG-START: dedicated series-discard outcome for movie searches (re-apply on upstream merge)
+                            MatchOutcome.REJECTED_SERIES -> localStats.copy(found = localStats.found + 1, rejectedSeries = localStats.rejectedSeries + 1)
+                            // TG-END
                             MatchOutcome.REJECTED_SEASON_EPISODE -> localStats.copy(found = localStats.found + 1, rejectedSeasonEpisode = localStats.rejectedSeasonEpisode + 1)
                         }
                     }
@@ -902,6 +958,9 @@ class TelegramRepositoryImpl @Inject constructor(
                     rejectedSize = stats.rejectedSize + retryStats.rejectedSize,
                     rejectedTitle = stats.rejectedTitle + retryStats.rejectedTitle,
                     rejectedSeasonEpisode = stats.rejectedSeasonEpisode + retryStats.rejectedSeasonEpisode,
+                    // TG-START: dedicated series-discard outcome for movie searches (re-apply on upstream merge)
+                    rejectedSeries = stats.rejectedSeries + retryStats.rejectedSeries,
+                    // TG-END
                     duplicates = stats.duplicates + retryStats.duplicates
                 )
             }
