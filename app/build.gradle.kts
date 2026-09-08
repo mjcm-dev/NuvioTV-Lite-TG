@@ -145,8 +145,10 @@ android {
         buildConfigField("String", "SENTRY_DSN", buildConfigString(sentryDsn))
 
         // In-app updater (GitHub Releases)
-        buildConfigField("String", "GITHUB_OWNER", "\"hackerslash\"")
-        buildConfigField("String", "GITHUB_REPO", "\"NuvioTV-Lite\"")
+        // TG-START: OTA points to our own fork releases (re-apply on upstream merge)
+        buildConfigField("String", "GITHUB_OWNER", "\"mjcm-dev\"")
+        buildConfigField("String", "GITHUB_REPO", "\"NuvioTV-Lite-TG\"")
+        // TG-END
 
         // Lite edition markers. Defaults for full/playstore; overridden by the lite flavor.
         buildConfigField("boolean", "FEATURE_LITE_EDITION", "false")

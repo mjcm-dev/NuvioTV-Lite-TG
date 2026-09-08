@@ -56,6 +56,21 @@ jobs:
           # Signing comes from env/secrets below, so drop any stale keystore path.
           sed -i -E '/^[[:space:]]*(sdk\.dir|NUVIO_RELEASE_STORE_FILE)[[:space:]]*=/d' local.properties || true
 
+      # TG-START: dev properties carry TMDB/Supabase keys (no TG keys: option B keeps
+      # them per-device; re-apply on upstream merge)
+      - name: Prepare local dev properties (TMDB/Supabase keys, no TG keys)
+        env:
+          LOCAL_DEV_PROPERTIES_BASE64: ${{ secrets.LOCAL_DEV_PROPERTIES_BASE64 }}
+        run: |
+          if [ -n "$LOCAL_DEV_PROPERTIES_BASE64" ]; then
+            printf '%s' "$LOCAL_DEV_PROPERTIES_BASE64" | tr -d ' \t\r\n' | base64 -d > local.dev.properties
+          fi
+          if grep -Eq '^[[:space:]]*TELEGRAM_(API_ID|API_HASH)[[:space:]]*=[[:space:]]*[^[:space:]]' local.dev.properties 2>/dev/null; then
+            echo "Refusing CI build with compiled Telegram keys (option B: per-device only)." >&2
+            exit 1
+          fi
+      # TG-END
+
       - name: Prepare release keystore (real nuviotv key)
         env:
           RELEASE_KEYSTORE_BASE64: ${{ secrets.NUVIO_RELEASE_KEYSTORE_BASE64 }}

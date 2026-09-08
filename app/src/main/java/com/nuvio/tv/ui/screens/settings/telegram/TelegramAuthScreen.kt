@@ -114,8 +114,11 @@ fun TelegramAuthScreen(
                 is TelegramAuthState.Unavailable ->
                     StatusText(stringResource(R.string.telegram_error_unavailable))
 
+                // TG-START: per-device API credentials, option B (re-apply on upstream merge)
+                // Keys are entered here precisely when missing; no dead-end state.
                 is TelegramAuthState.MissingCredentials ->
-                    StatusText(stringResource(R.string.telegram_error_missing_credentials))
+                    CredentialsForm(viewModel)
+                // TG-END
 
                 is TelegramAuthState.WaitingQrCode -> QrPanel(state.link, onBackPress)
                 is TelegramAuthState.WaitingPhoneNumber -> PhoneForm(viewModel)
@@ -257,6 +260,62 @@ private fun ReadyPanel(firstName: String, onUnbind: () -> Unit) {
         }
     }
 }
+
+// TG-START: per-device API credentials, option B (re-apply on upstream merge)
+@Composable
+private fun CredentialsForm(viewModel: TelegramAuthViewModel) {
+    var apiId by remember { mutableStateOf("") }
+    var apiHash by remember { mutableStateOf("") }
+    val showError by viewModel.credentialsError.collectAsState()
+
+    LaunchedEffect(apiId, apiHash) {
+        if (showError) viewModel.clearCredentialsError()
+    }
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = stringResource(R.string.telegram_credentials_prompt),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
+        )
+        Spacer(Modifier.height(12.dp))
+        TgInputField(
+            value = apiId,
+            onValueChange = { apiId = it },
+            placeholder = stringResource(R.string.telegram_credentials_api_id_placeholder),
+            keyboardType = KeyboardType.Number,
+            imeAction = ImeAction.Next,
+            onImeAction = { },
+            modifier = Modifier.widthIn(max = 380.dp)
+        )
+        Spacer(Modifier.height(12.dp))
+        TgInputField(
+            value = apiHash,
+            onValueChange = { apiHash = it },
+            placeholder = stringResource(R.string.telegram_credentials_api_hash_placeholder),
+            keyboardType = KeyboardType.Text,
+            imeAction = ImeAction.Done,
+            onImeAction = { viewModel.saveCredentials(apiId, apiHash) },
+            modifier = Modifier.widthIn(max = 380.dp)
+        )
+        if (showError) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.telegram_credentials_invalid),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+        Button(
+            onClick = { viewModel.saveCredentials(apiId, apiHash) },
+            enabled = apiId.isNotBlank() && apiHash.isNotBlank()
+        ) {
+            Text(stringResource(R.string.action_continue))
+        }
+    }
+}
+// TG-END
 
 @Composable
 private fun PhoneForm(viewModel: TelegramAuthViewModel) {

@@ -19,10 +19,10 @@ El comportamiento TG es idéntico en ambos. En Lite, además, el módulo debe re
 
 **Idioma de referencia:** interfaz en español de España (`es-ES`). Las búsquedas deben contemplar siempre el título localizado **y** el título original (normalmente inglés), además del identificador IMDb cuando exista.
 
-**Credenciales externas (inyectadas por configuración, nunca en el repo):**
+**Credenciales externas:**
 
-- Telegram `API_ID + API_HASH` obtenidos en `my.telegram.org`.
-- TMDB `API_KEY v3` (clave clásica `api_key=...`; no vale el token v4 `Read Access Token` tal como está diseñado el uso actual).
+- Telegram `API_ID + API_HASH` obtenidos en `my.telegram.org`: **opción B, por dispositivo**. El APK se distribuye SIN claves compiladas; cada aparato las introduce una vez en *Ajustes → Telegram* y se guardan solo en su almacenamiento local (nunca viajan a ningún servidor ni al repo). Las compiladas, si existen en builds locales, son solo fallback. La CI rechaza compilar si el Secret llevara claves TG.
+- TMDB `API_KEY v3` (clave clásica `api_key=...`; no vale el token v4 `Read Access Token` tal como está diseñado el uso actual): inyectada por configuración en build, nunca en el repo.
 
 ---
 
@@ -53,12 +53,12 @@ Permitir al usuario vincular y desvincular su cuenta personal de Telegram para h
 ### 1.3 Criterios de aceptación
 
 - Sin librería nativa para el ABI → mensaje “no disponible”, app usable.
-- Sin `API_ID/HASH` en la compilación → mensaje “faltan credenciales”, solo se ve el interruptor de búsqueda.
+- Sin `API_ID/HASH` (ni compiladas ni introducidas) → formulario para introducirlas en el propio estado “faltan credenciales” (sin callejones sin salida); validación de formato (ID numérico, hash 32 hex) y reintento de arranque al guardar. Con claves ya guardadas en el dispositivo, el arranque no pide nada.
 - QR escaneado en el móvil → pantalla muestra “Vinculada como \<nombre\>”.
 - Reinicio de la app → sigue vinculada sin QR.
 - Desvincular → vuelve a pedir vinculación y no quedan ficheros TG.
 
-> **NOTA — por qué así:** el QR lo genera la propia librería Telegram contra la API oficial y exige `API_ID/HASH`; no existe QR “genérico” sin credenciales. La sesión vive en el almacenamiento nativo de la librería, no en preferencias de la app. En TV con mando el QR es mucho más usable que teclear el teléfono, de ahí el flujo QR-first.
+> **NOTA — por qué así:** el QR lo genera la propia librería Telegram contra la API oficial y exige `API_ID/HASH` (compiladas o introducidas en el dispositivo, con prioridad a estas últimas); no existe QR “genérico” sin credenciales. La sesión vive en el almacenamiento nativo de la librería, no en preferencias de la app. En TV con mando el QR es mucho más usable que teclear el teléfono, de ahí el flujo QR-first. Son dos pasos separados e independientes: ① claves de app (una vez por dispositivo) → ② QR de cuenta.
 
 ---
 

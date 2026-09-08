@@ -1075,6 +1075,12 @@
     <string name="telegram_status_initializing">Conectando con Telegram…</string>
     <string name="telegram_error_unavailable">TDLib no está disponible en este dispositivo</string>
     <string name="telegram_error_missing_credentials">Faltan las credenciales de Telegram en esta compilación</string>
+    <!-- TG-START: per-device API credentials, option B (re-apply on upstream merge) -->
+    <string name="telegram_credentials_prompt">Introduce las credenciales API de Telegram de este dispositivo (gratis en my.telegram.org). Solo se guardan aquí.</string>
+    <string name="telegram_credentials_api_id_placeholder">API ID (números)</string>
+    <string name="telegram_credentials_api_hash_placeholder">API hash (32 caracteres)</string>
+    <string name="telegram_credentials_invalid">Revisa los valores: el API ID debe ser numérico y el hash de 32 hexadecimales.</string>
+    <!-- TG-END -->
     <string name="telegram_error_generic">Error: %1$s</string>
     <string name="telegram_qr_content_description">Código QR</string>
     <string name="telegram_qr_instructions">Abre Telegram en tu móvil: Ajustes → Dispositivos → Vincular dispositivo, y escanea este código</string>
