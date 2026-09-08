@@ -66,4 +66,5 @@ docs/
 docs/*
 !docs/telegram-requirements.md
 !docs/telegram-release-strategy.md
+graphify-out/
 status-page/

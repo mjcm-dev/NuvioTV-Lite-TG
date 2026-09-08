@@ -147,6 +147,17 @@ class TelegramMediaParserTest {
     }
     // TG-END
 
+    // TG-START: lone digits kept as sequel numbers (re-apply on upstream merge)
+    @Test
+    fun `keeps sequel number in clean title`() {
+        val parsed = TelegramMediaParser.parse("El diablo viste de Prada 2 (2026).mkv")
+
+        assertEquals("El diablo viste de Prada 2", parsed.cleanTitle)
+        assertNull(parsed.season)
+        assertNull(parsed.episode)
+    }
+    // TG-END
+
     // TG-START: non-localized series patterns (re-apply on upstream merge)
     @Test
     fun `non-localized keeps numeric patterns`() {

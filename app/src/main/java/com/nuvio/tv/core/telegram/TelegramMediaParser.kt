@@ -164,7 +164,11 @@ object TelegramMediaParser {
             if (token.isEmpty()) return@forEach
             val bare = token.trim('\'', '"').lowercase().let { java.text.Normalizer.normalize(it, java.text.Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "") }
             if (bare.isEmpty() || bare.length > 30 || bare.all { !it.isLetterOrDigit() }) return@forEach
-            if (bare.length == 1 && bare[0].isDigit()) return@forEach
+            // TG-START: keep lone digits — they are usually sequel numbers ("Prada 2",
+            // "Rocky 2"); S/E markers were already cut above, so a leftover digit is
+            // signal, not noise. Dropping it capped title overlap below threshold.
+            // (re-apply on upstream merge)
+            // TG-END
             if (bare in NOISE_WORDS) return@forEach
             kept.append(tokenRaw).append(' ')
         }
