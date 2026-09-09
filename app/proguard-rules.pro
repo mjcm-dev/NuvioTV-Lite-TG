@@ -1,5 +1,12 @@
 # Add project specific ProGuard rules here.
 
+# TG-START: keep vendored TDLib binding intact for JNI (re-apply on upstream merge)
+# The native libtdjni.so looks up these classes/methods by name at runtime;
+# R8 renaming/removing them breaks linking with UnsatisfiedLinkError.
+-keep class org.drinkless.tdlib.** { *; }
+-keepclasseswithmembers class org.drinkless.tdlib.** { native <methods>; }
+# TG-END
+
 # ── Moshi ──────────────────────────────────────────────────────────────────────
 # Keep Moshi-generated JsonAdapter classes
 -keep class com.squareup.moshi.** { *; }
