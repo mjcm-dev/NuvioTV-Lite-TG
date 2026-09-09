@@ -9,7 +9,8 @@
 
 All notable changes to the Lite Edition are documented here. Versions use the
 `X.Y.Z-lite` scheme; every release ships torrent-free per-ABI APKs and receives
-in-app OTA updates.
+in-app OTA updates. Releases of this fork append `-tg.N`
+(e.g. `v1.4.5-lite-tg.1`) and are offered on the BETA update channel.
 
 Release tags are `v<versionName>` (e.g. `v1.0.0-lite`) and are derived from the
 build itself. The in-app updater compares the release tag against the installed
@@ -82,6 +83,18 @@ full releases — the updater ignores prereleases and drafts.
 - [upstream] Translations: Italian, Slovak, Polish, Greek, Spanish (LatAm) and Vietnamese.
   @DanieleKun @mmsw91 @skoruppa @nosvasedis @omavel @blueocean2308
 
+## v1.4.4-lite-TG — 2026-09-03
+
+### Telegram (TG) direct-streaming and series matching
+- Replaced HTTP proxy dependence with direct Telegram DataSource reads from TDLib temp
+  files, avoiding re-download cancellation loops and stabilizing random seeks.
+- Series search now combines localized/original/alternative titles with richer S/E
+  patterns (`S06E03`, `S6E3`, `6x03`) and uses chat-context fallback only when needed.
+- Added per-profile Telegram setting to enable/disable channel-title-assisted series
+  matching in Settings.
+- Stream cards now surface full Telegram filenames and behavior hints to simplify
+  debugging and manual source validation.
+
 ## v1.4.4-lite — 2026-09-02
 
 ### High-bitrate 4K no longer stalls every few minutes
@@ -94,8 +107,9 @@ full releases — the updater ignores prereleases and drafts.
   15 seconds of video rather than five.
 
 ### Synced with upstream NuvioTV (0.8.12-beta)
-- No upstream changes in this release — a Lite-only patch on the same 0.8.12-beta base as
-  v1.4.3-lite.
+- [upstream] Lite no longer hard-caps the playback buffer at 48 MB on every device.
+  Low-RAM devices keep the protection, but regular-memory devices now use a larger
+  budget to avoid periodic stalls on high-bitrate streams.
 
 ## v1.4.3-lite — 2026-09-01
 
@@ -161,7 +175,7 @@ full releases — the updater ignores prereleases and drafts.
 - The stats HUD reads total RAM from the cached device tier rather than querying
   ActivityManager, which it would otherwise do twice a second while showing.
 
-## v1.4.2-lite — 2026-08-30
+## v1.4.2-lite-TG — 2026-08-30
 
 ### Synced with upstream NuvioTV (0.8.11-beta)
 - [upstream] A playback stats overlay: resolution, codecs, bitrates, dropped frames, buffer
@@ -222,7 +236,7 @@ full releases — the updater ignores prereleases and drafts.
 - The playback stats overlay costs nothing while it is off: it is composed only when the
   setting is on, and its one-second sampler lives inside it.
 
-## v1.4.1-lite — 2026-08-27
+## v1.4.1-lite-TG — 2026-08-27
 
 ### Synced with upstream NuvioTV (0.8.10-beta)
 - [upstream] Post-play recommendations: when playback reaches the end, a full-screen card offers
@@ -294,7 +308,7 @@ full releases — the updater ignores prereleases and drafts.
   The home refresh above needed nothing: it already goes through this edition's low-RAM catalog
   concurrency limit.
 
-## v1.4.0-lite — 2026-08-25
+## v1.4.0-lite-TG — 2026-08-25
 
 ### Synced with upstream NuvioTV (post-0.8.7-beta)
 - [upstream] MP4s with the moov atom at the end now play on the default path instead of
