@@ -1,3 +1,4 @@
+// TG-ONLY-FILE: vendored TDLib binding, Telegram module — keep whole file on upstream merge
 //
 // Copyright Aliaksei Levin (levlam@telegram.org), Arseny Smirnov (arseny30@gmail.com) 2014-2026
 //

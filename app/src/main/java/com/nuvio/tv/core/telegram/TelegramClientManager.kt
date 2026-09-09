@@ -1,3 +1,4 @@
+// TG-ONLY-FILE: Telegram module — keep whole file on upstream merge
 package com.nuvio.tv.core.telegram
 
 import android.content.Context
@@ -39,7 +40,10 @@ class TelegramApiException(
 @Singleton
 class TelegramClientManager @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val storageManager: TelegramStorageManager
+    private val storageManager: TelegramStorageManager,
+    // TG-START: per-device API credentials, option B (re-apply on upstream merge)
+    private val credentialsStore: TelegramCredentialsStore
+    // TG-END
 ) {
     companion object {
         private const val TAG = "TelegramClient"
@@ -140,8 +144,30 @@ class TelegramClientManager @Inject constructor(
         return isLibraryAvailable
     }
 
+    // TG-START: per-device API credentials, option B (re-apply on upstream merge)
+    /** Device-entered keys win; compiled keys remain as fallback. */
+    fun effectiveApiId(): Int =
+        credentialsStore.apiId.takeIf { it != 0 } ?: BuildConfig.TELEGRAM_API_ID
+
+    fun effectiveApiHash(): String =
+        credentialsStore.apiHash.takeIf { TelegramCredentialsValidator.isValidApiHash(it) }
+            ?: BuildConfig.TELEGRAM_API_HASH
+
+    /** True when device keys are present (used by the settings UI). */
+    fun hasUserCredentials(): Boolean = credentialsStore.hasUserCredentials()
+
+    /**
+     * Stores device keys and retries init. Safe from MissingCredentials:
+     * [initialize] only bails on client/Ready/Error states.
+     */
+    fun saveCredentials(apiId: Int, apiHash: String) {
+        credentialsStore.save(apiId, apiHash)
+        initialize()
+    }
+    // TG-END
+
     private fun hasCredentials(): Boolean =
-        BuildConfig.TELEGRAM_API_ID != 0 && BuildConfig.TELEGRAM_API_HASH.isNotBlank()
+        effectiveApiId() != 0 && TelegramCredentialsValidator.isValidApiHash(effectiveApiHash())
 
     private fun sendTdlibParameters() {
         val params = TdApi.SetTdlibParameters().apply {
@@ -152,8 +178,10 @@ class TelegramClientManager @Inject constructor(
             useChatInfoDatabase = false
             useMessageDatabase = false
             useSecretChats = false
-            apiId = BuildConfig.TELEGRAM_API_ID
-            apiHash = BuildConfig.TELEGRAM_API_HASH
+            // TG-START: per-device API credentials, option B (re-apply on upstream merge)
+            apiId = effectiveApiId()
+            apiHash = effectiveApiHash()
+            // TG-END
             systemLanguageCode = "es"
             deviceModel = "NuvioTV Lite"
             systemVersion = "Android ${android.os.Build.VERSION.RELEASE}"

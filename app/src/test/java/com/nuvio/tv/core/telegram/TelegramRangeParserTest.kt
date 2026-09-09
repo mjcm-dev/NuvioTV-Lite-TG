@@ -1,3 +1,4 @@
+// TG-ONLY-FILE: Telegram module — keep whole file on upstream merge
 package com.nuvio.tv.core.telegram
 
 import org.junit.Assert.assertEquals

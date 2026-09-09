@@ -1,5 +1,6 @@
 @file:OptIn(ExperimentalTvMaterial3Api::class)
 
+// TG-ONLY-FILE: Telegram module — keep whole file on upstream merge
 package com.nuvio.tv.ui.screens.settings.telegram
 
 import androidx.activity.compose.BackHandler
@@ -69,6 +70,11 @@ fun TelegramAuthScreen(
 ) {
     val authState by viewModel.authState.collectAsState()
     val allowChannelContextSeriesMatch by viewModel.allowChannelContextSeriesMatch.collectAsState()
+    // TG-START: search toggles under "Búsqueda TG" (re-apply on upstream merge)
+    val moviesI18nEnabled by viewModel.moviesI18nEnabled.collectAsState()
+    val seriesI18nEnabled by viewModel.seriesI18nEnabled.collectAsState()
+    val discardSeriesInMovies by viewModel.discardSeriesInMovies.collectAsState()
+    // TG-END
 
     BackHandler { onBackPress() }
 
@@ -108,8 +114,11 @@ fun TelegramAuthScreen(
                 is TelegramAuthState.Unavailable ->
                     StatusText(stringResource(R.string.telegram_error_unavailable))
 
+                // TG-START: per-device API credentials, option B (re-apply on upstream merge)
+                // Keys are entered here precisely when missing; no dead-end state.
                 is TelegramAuthState.MissingCredentials ->
-                    StatusText(stringResource(R.string.telegram_error_missing_credentials))
+                    CredentialsForm(viewModel)
+                // TG-END
 
                 is TelegramAuthState.WaitingQrCode -> QrPanel(state.link, onBackPress)
                 is TelegramAuthState.WaitingPhoneNumber -> PhoneForm(viewModel)
@@ -127,10 +136,43 @@ fun TelegramAuthScreen(
             }
 
             Spacer(Modifier.height(20.dp))
+            // TG-START: "Búsqueda TG" hierarchy (re-apply on upstream merge)
             SettingsGroupCard(
                 modifier = Modifier.fillMaxWidth(),
                 title = stringResource(R.string.telegram_search_group_title)
             ) {
+                TgSearchSectionHeader(
+                    text = stringResource(R.string.telegram_search_advanced_movies_title)
+                )
+                SettingsToggleRow(
+                    title = stringResource(R.string.telegram_search_i18n_movies_title),
+                    subtitle = stringResource(R.string.telegram_search_i18n_movies_subtitle),
+                    checked = moviesI18nEnabled,
+                    onToggle = {
+                        viewModel.setMoviesI18nEnabled(!moviesI18nEnabled)
+                    }
+                )
+                // TG-START: discard series files in movie searches (re-apply on upstream merge)
+                SettingsToggleRow(
+                    title = stringResource(R.string.telegram_search_discard_series_title),
+                    subtitle = stringResource(R.string.telegram_search_discard_series_subtitle),
+                    checked = discardSeriesInMovies,
+                    onToggle = {
+                        viewModel.setDiscardSeriesInMovies(!discardSeriesInMovies)
+                    }
+                )
+                // TG-END
+                TgSearchSectionHeader(
+                    text = stringResource(R.string.telegram_search_advanced_series_title)
+                )
+                SettingsToggleRow(
+                    title = stringResource(R.string.telegram_search_i18n_series_title),
+                    subtitle = stringResource(R.string.telegram_search_i18n_series_subtitle),
+                    checked = seriesI18nEnabled,
+                    onToggle = {
+                        viewModel.setSeriesI18nEnabled(!seriesI18nEnabled)
+                    }
+                )
                 SettingsToggleRow(
                     title = stringResource(R.string.telegram_search_channel_context_title),
                     subtitle = stringResource(R.string.telegram_search_channel_context_subtitle),
@@ -140,6 +182,7 @@ fun TelegramAuthScreen(
                     }
                 )
             }
+            // TG-END
 
             Spacer(Modifier.height(24.dp))
             OutlinedButton(onClick = onBackPress) {
@@ -158,6 +201,20 @@ private fun StatusText(message: String) {
         textAlign = TextAlign.Center
     )
 }
+
+// TG-START: "Búsqueda TG" hierarchy (re-apply on upstream merge)
+@Composable
+private fun TgSearchSectionHeader(text: String) {
+    Text(
+        text = text.uppercase(),
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 14.dp, top = 6.dp, bottom = 2.dp)
+    )
+}
+// TG-END
 
 @Composable
 private fun QrPanel(link: String, onBackPress: () -> Unit) {
@@ -203,6 +260,62 @@ private fun ReadyPanel(firstName: String, onUnbind: () -> Unit) {
         }
     }
 }
+
+// TG-START: per-device API credentials, option B (re-apply on upstream merge)
+@Composable
+private fun CredentialsForm(viewModel: TelegramAuthViewModel) {
+    var apiId by remember { mutableStateOf("") }
+    var apiHash by remember { mutableStateOf("") }
+    val showError by viewModel.credentialsError.collectAsState()
+
+    LaunchedEffect(apiId, apiHash) {
+        if (showError) viewModel.clearCredentialsError()
+    }
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = stringResource(R.string.telegram_credentials_prompt),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.75f)
+        )
+        Spacer(Modifier.height(12.dp))
+        TgInputField(
+            value = apiId,
+            onValueChange = { apiId = it },
+            placeholder = stringResource(R.string.telegram_credentials_api_id_placeholder),
+            keyboardType = KeyboardType.Number,
+            imeAction = ImeAction.Next,
+            onImeAction = { },
+            modifier = Modifier.widthIn(max = 380.dp)
+        )
+        Spacer(Modifier.height(12.dp))
+        TgInputField(
+            value = apiHash,
+            onValueChange = { apiHash = it },
+            placeholder = stringResource(R.string.telegram_credentials_api_hash_placeholder),
+            keyboardType = KeyboardType.Text,
+            imeAction = ImeAction.Done,
+            onImeAction = { viewModel.saveCredentials(apiId, apiHash) },
+            modifier = Modifier.widthIn(max = 380.dp)
+        )
+        if (showError) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.telegram_credentials_invalid),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+        Button(
+            onClick = { viewModel.saveCredentials(apiId, apiHash) },
+            enabled = apiId.isNotBlank() && apiHash.isNotBlank()
+        ) {
+            Text(stringResource(R.string.action_continue))
+        }
+    }
+}
+// TG-END
 
 @Composable
 private fun PhoneForm(viewModel: TelegramAuthViewModel) {

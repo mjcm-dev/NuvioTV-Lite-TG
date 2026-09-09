@@ -428,7 +428,9 @@ fun StreamScreen(
                     availableAddons = uiState.availableAddons,
                     sourceChips = uiState.sourceChips,
                     selectedAddonFilter = uiState.selectedAddonFilter,
+                    // TG-START: preferred resume URL incl. TG scope match (re-apply on upstream merge)
                     preferredResumeStreamUrl = uiState.preferredResumeStreamUrl,
+                    // TG-END
                     showFileSizeBadges = streamBadgeSettings.showFileSizeBadges,
                     showAddonLogo = streamBadgeSettings.showAddonLogo,
                     badgePlacement = streamBadgeSettings.badgePlacement,
@@ -721,7 +723,9 @@ private fun RightStreamSection(
     availableAddons: List<String>,
     sourceChips: List<SourceChipItem>,
     selectedAddonFilter: String?,
+    // TG-START: preferred resume URL incl. TG scope match (re-apply on upstream merge)
     preferredResumeStreamUrl: String?,
+    // TG-END
     showFileSizeBadges: Boolean,
     showAddonLogo: Boolean,
     badgePlacement: StreamBadgePlacement,
@@ -891,7 +895,9 @@ private fun RightStreamSection(
                             firstStreamFocusRequestId = firstStreamFocusRequestId,
                             availableAddons = availableAddons,
                             selectedAddonFilter = selectedAddonFilter,
+                            // TG-START: preferred resume URL incl. TG scope match (re-apply on upstream merge)
                             preferredResumeStreamUrl = preferredResumeStreamUrl,
+                            // TG-END
                             showFileSizeBadges = showFileSizeBadges,
                             showAddonLogo = showAddonLogo,
                             badgePlacement = badgePlacement,
@@ -1009,7 +1015,9 @@ private fun StreamsList(
     firstStreamFocusRequestId: Int = 0,
     availableAddons: List<String> = emptyList(),
     selectedAddonFilter: String? = null,
+    // TG-START: preferred resume URL incl. TG scope match (re-apply on upstream merge)
     preferredResumeStreamUrl: String? = null,
+    // TG-END
     showFileSizeBadges: Boolean = true,
     showAddonLogo: Boolean = true,
     badgePlacement: StreamBadgePlacement = StreamBadgePlacement.BOTTOM,
@@ -1122,8 +1130,10 @@ private fun StreamsList(
             Box(modifier = Modifier.padding(vertical = NuvioTheme.spacing.xs)) {
                 StreamCard(
                     stream = stream,
+                    // TG-START: resume badge incl. TG scope match (re-apply on upstream merge)
                     isPreferredResumeStream =
                         preferredResumeStreamUrl != null && stream.getStreamUrl() == preferredResumeStreamUrl,
+                    // TG-END
                     showFileSizeBadges = showFileSizeBadges,
                     showAddonLogo = showAddonLogo,
                     badgePlacement = badgePlacement,
@@ -1153,7 +1163,9 @@ private fun StreamsList(
 @Composable
 private fun StreamCard(
     stream: Stream,
+    // TG-START: resume badge incl. TG scope match (re-apply on upstream merge)
     isPreferredResumeStream: Boolean,
+    // TG-END
     showFileSizeBadges: Boolean,
     showAddonLogo: Boolean,
     badgePlacement: StreamBadgePlacement,
@@ -1168,11 +1180,13 @@ private fun StreamCard(
     val unknownStreamLabel = stringResource(R.string.stream_unknown)
     val streamName = remember(stream, unknownStreamLabel) { stream.getDisplayNameOrNull() ?: unknownStreamLabel }
     val streamDescription = remember(stream) { stream.getDisplayDescription() }
+    // TG-START: TG filename line + resume prefix (re-apply on upstream merge)
     val streamFileName = remember(stream) { stream.behaviorHints?.filename?.trim().orEmpty() }
     val preferredPrefix = stringResource(R.string.cw_resume)
     val effectiveStreamName = remember(streamName, isPreferredResumeStream, preferredPrefix) {
         if (isPreferredResumeStream) "$preferredPrefix • $streamName" else streamName
     }
+    // TG-END
     val hasBadges = stream.badges.isNotEmpty() || (showFileSizeBadges && stream.behaviorHints?.videoSize != null) || reserveBadgeSpace
 
     var isFocused by remember { mutableStateOf(false) }
@@ -1246,7 +1260,9 @@ private fun StreamCard(
                 }
 
                 Text(
+                    // TG-START: uses TG effectiveStreamName with resume prefix (re-apply on upstream merge)
                     text = effectiveStreamName,
+                    // TG-END
                     style = MaterialTheme.typography.titleMedium,
                     color = NuvioTheme.colors.TextPrimary
                 )
@@ -1261,6 +1277,7 @@ private fun StreamCard(
                     }
                 }
 
+                // TG-START: show TG source filename when it adds info (re-apply on upstream merge)
                 if (streamFileName.isNotBlank() &&
                     !streamFileName.equals(streamName, ignoreCase = true) &&
                     !streamFileName.equals(streamDescription, ignoreCase = true)
@@ -1271,6 +1288,7 @@ private fun StreamCard(
                         color = NuvioTheme.extendedColors.textTertiary
                     )
                 }
+                // TG-END
 
                 if (hasBadges && badgePlacement == StreamBadgePlacement.BOTTOM) {
                     if (stream.badges.isNotEmpty() || (showFileSizeBadges && stream.behaviorHints?.videoSize != null)) {

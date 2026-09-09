@@ -1,3 +1,4 @@
+// TG-ONLY-FILE: vendored TDLib binding, Telegram module — keep whole file on upstream merge
 package org.drinkless.tdlib;
 
 import androidx.annotation.IntDef;

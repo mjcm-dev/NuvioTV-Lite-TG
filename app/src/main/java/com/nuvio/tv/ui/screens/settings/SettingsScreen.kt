@@ -46,7 +46,9 @@ import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
+// TG-START: Send icon for Telegram section (re-apply on upstream merge)
 import androidx.compose.material.icons.filled.Send
+// TG-END
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.runtime.Composable
@@ -107,7 +109,9 @@ internal enum class SettingsCategory {
     LAYOUT,
     CONTENT_DISCOVERY,
     INTEGRATION,
+    // TG-START: Telegram settings category (re-apply on upstream merge)
     TELEGRAM,
+    // TG-END
     PLAYBACK,
     ADVANCED,
     TRACKING,
@@ -216,6 +220,7 @@ private fun rememberSettingsSectionSpecs() = listOf(
         subtitle = "",
         destination = SettingsSectionDestination.Inline
     ),
+    // TG-START: Telegram settings section (re-apply on upstream merge)
     SettingsSectionSpec(
         category = SettingsCategory.TELEGRAM,
         title = stringResource(R.string.telegram_settings_title),
@@ -223,6 +228,7 @@ private fun rememberSettingsSectionSpecs() = listOf(
         subtitle = stringResource(R.string.telegram_settings_subtitle),
         destination = SettingsSectionDestination.External
     ),
+    // TG-END
     SettingsSectionSpec(
         category = SettingsCategory.PLAYBACK,
         title = stringResource(R.string.settings_playback),
@@ -267,7 +273,9 @@ fun SettingsScreen(
     onNavigateToAddons: () -> Unit = {},
     onNavigateToPlugins: () -> Unit = {},
     onNavigateToAuthQrSignIn: () -> Unit = {},
+    // TG-START: Telegram navigation callback (re-apply on upstream merge)
     onNavigateToTelegram: () -> Unit = {},
+    // TG-END
     onNavigateToManageProfiles: () -> Unit = {},
     onNavigateToSupportersContributors: () -> Unit = {},
     onNavigateToLicensesAttributions: () -> Unit = {},
@@ -503,6 +511,7 @@ fun SettingsScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .background(NuvioTheme.colors.Background)
             .padding(
                 start = NuvioTheme.spacing.xxl,
                 end = NuvioTheme.spacing.xxl,
@@ -525,7 +534,9 @@ fun SettingsScreen(
                     when (section.category) {
                         SettingsCategory.ACCOUNT -> onNavigateToAuthQrSignIn()
                         SettingsCategory.TRACKING -> onNavigateToTracking()
+                        // TG-START: Telegram external navigation (re-apply on upstream merge)
                         SettingsCategory.TELEGRAM -> onNavigateToTelegram()
+                        // TG-END
                         else -> Unit
                     }
                 } else {
@@ -1047,7 +1058,9 @@ private fun SettingsDetailPane(
             }
         )
         SettingsCategory.DEBUG -> DebugSettingsContent()
+        // TG-START: Telegram renders externally, no inline pane (re-apply on upstream merge)
         SettingsCategory.TELEGRAM -> Unit
+        // TG-END
         SettingsCategory.TRACKING -> Unit
     }
 }

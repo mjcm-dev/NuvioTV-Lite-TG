@@ -1066,6 +1066,7 @@
     <string name="watchlist_removed">Eliminado de lista de deseos</string>
     <string name="playback_player_auto">Automático (Mejor para el contenido)</string>
     <string name="playback_player_auto_desc">ExoPlayer para Películas y Series · MPV para Anime</string>
+    <!-- TG-START: Telegram strings (re-apply on upstream merge) -->
     <string name="action_continue">Continuar</string>
 
     <!-- Telegram -->
@@ -1074,6 +1075,12 @@
     <string name="telegram_status_initializing">Conectando con Telegram…</string>
     <string name="telegram_error_unavailable">TDLib no está disponible en este dispositivo</string>
     <string name="telegram_error_missing_credentials">Faltan las credenciales de Telegram en esta compilación</string>
+    <!-- TG-START: per-device API credentials, option B (re-apply on upstream merge) -->
+    <string name="telegram_credentials_prompt">Introduce las credenciales API de Telegram de este dispositivo (gratis en my.telegram.org). Solo se guardan aquí.</string>
+    <string name="telegram_credentials_api_id_placeholder">API ID (números)</string>
+    <string name="telegram_credentials_api_hash_placeholder">API hash (32 caracteres)</string>
+    <string name="telegram_credentials_invalid">Revisa los valores: el API ID debe ser numérico y el hash de 32 hexadecimales.</string>
+    <!-- TG-END -->
     <string name="telegram_error_generic">Error: %1$s</string>
     <string name="telegram_qr_content_description">Código QR</string>
     <string name="telegram_qr_instructions">Abre Telegram en tu móvil: Ajustes → Dispositivos → Vincular dispositivo, y escanea este código</string>
@@ -1087,9 +1094,18 @@
     <string name="telegram_password_prompt">Introduce tu contraseña de verificación en dos pasos</string>
     <string name="telegram_password_placeholder">Contraseña</string>
     <string name="telegram_search_group_title">Búsqueda en Telegram</string>
-    <string name="telegram_search_channel_context_title">Usar título del canal para series</string>
-    <string name="telegram_search_channel_context_subtitle">Cuando el nombre del archivo no incluya el título de la serie, empareja episodios usando título del canal + marcadores de temporada/episodio.</string>
+    <string name="telegram_search_advanced_movies_title">Búsqueda avanzada para películas</string>
+    <string name="telegram_search_i18n_movies_title">Internacionalización</string>
+    <string name="telegram_search_i18n_movies_subtitle">Buscar también con título original, alternativos y sigla. Desactivado: solo título de la interfaz.</string>
+    <string name="telegram_search_discard_series_title">Descartar series</string>
+    <string name="telegram_search_discard_series_subtitle">Rechaza archivos con marcadores de temporada/episodio en búsquedas de películas.</string>
+    <string name="telegram_search_advanced_series_title">Búsqueda avanzada para series</string>
+    <string name="telegram_search_i18n_series_title">Internacionalización</string>
+    <string name="telegram_search_i18n_series_subtitle">Buscar también con título original, alternativos, sigla y patrones de temporada/episodio localizados. Desactivado: solo título de la interfaz y patrones numéricos.</string>
+    <string name="telegram_search_channel_context_title">Canal/Carpeta con solo episodios</string>
+    <string name="telegram_search_channel_context_subtitle">Cuando el nombre del archivo no incluya el título de la serie, empareja episodios usando título del canal o carpeta + marcadores de temporada/episodio.</string>
     <string name="advanced_clear_safe_storage">Liberar almacenamiento de la app (mantener cuenta)</string>
     <string name="advanced_clear_safe_storage_subtitle">Limpia la caché temporal y los archivos de descarga de Telegram, manteniendo addons, cuenta y sesión vinculada de Telegram</string>
     <string name="advanced_clear_safe_storage_done">Almacenamiento liberado</string>
+    <!-- TG-END -->
 </resources>

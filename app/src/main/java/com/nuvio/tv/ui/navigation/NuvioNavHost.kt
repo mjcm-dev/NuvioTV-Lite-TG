@@ -481,6 +481,11 @@ fun NuvioNavHost(
                     type = NavType.StringType
                     nullable = true
                     defaultValue = null
+                },
+                navArgument("profileId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
                 }
             )
         ) { backStackEntry ->
@@ -570,7 +575,8 @@ fun NuvioNavHost(
                                 infoHash = playbackInfo.infoHash,
                                 fileIdx = playbackInfo.fileIdx,
                                 sources = playbackInfo.sources,
-                                contentLanguage = playbackInfo.contentLanguage
+                                contentLanguage = playbackInfo.contentLanguage,
+                                profileId = playbackInfo.profileId
                             )
                         )
                     }
@@ -610,7 +616,8 @@ fun NuvioNavHost(
                                 infoHash = playbackInfo.infoHash,
                                 fileIdx = playbackInfo.fileIdx,
                                 sources = playbackInfo.sources,
-                                contentLanguage = playbackInfo.contentLanguage
+                                contentLanguage = playbackInfo.contentLanguage,
+                                profileId = playbackInfo.profileId
                             )
                         ) {
                             popUpTo(Screen.Stream.route) { inclusive = true }
@@ -759,6 +766,11 @@ fun NuvioNavHost(
                     type = NavType.StringType
                     nullable = true
                     defaultValue = null
+                },
+                navArgument("profileId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
                 }
             )
         ) { backStackEntry ->
@@ -879,7 +891,8 @@ fun NuvioNavHost(
                                         contentName = args?.getString("contentName"),
                                         manualSelection = true,
                                         returnToDetailOnBack = returnToDetailOnBack,
-                                        returnToHomeOnBack = returnToHomeOnBack
+                                        returnToHomeOnBack = returnToHomeOnBack,
+                                        profileId = args?.getString("profileId")?.toIntOrNull()
                                     )
                                 ) {
                                     popUpTo(Screen.Stream.route) { inclusive = true }
@@ -932,7 +945,8 @@ fun NuvioNavHost(
                             contentName = args?.getString("contentName"),
                             runtime = null,
                             returnToDetailOnBack = returnToDetailOnBack,
-                            returnToHomeOnBack = returnToHomeOnBack
+                            returnToHomeOnBack = returnToHomeOnBack,
+                            profileId = args?.getString("profileId")?.toIntOrNull()
                         )
                         navController.navigate(route) {
                             popUpTo(Screen.Player.route) { inclusive = true }
@@ -1060,7 +1074,8 @@ fun NuvioNavHost(
                                 returnToDetailOnBack = args?.getString("returnToDetailOnBack")
                                     ?.toBooleanStrictOrNull() == true,
                                 returnToHomeOnBack = args?.getString("returnToHomeOnBack")
-                                    ?.toBooleanStrictOrNull() == true
+                                    ?.toBooleanStrictOrNull() == true,
+                                profileId = args?.getString("profileId")?.toIntOrNull()
                             )
 
                             navController.navigate(route) {
@@ -1152,7 +1167,9 @@ fun NuvioNavHost(
                 onNavigateToAddons = { navController.navigate(Screen.AddonManager.route) },
                 onNavigateToPlugins = { navController.navigate(Screen.Plugins.route) },
                 onNavigateToAuthQrSignIn = { navController.navigate(Screen.AuthQrSignIn.route) },
+                // TG-START: Telegram settings navigation (re-apply on upstream merge)
                 onNavigateToTelegram = { navController.navigate(Screen.TelegramAuth.route) },
+                // TG-END
                 onNavigateToManageProfiles = { navController.navigate(Screen.ManageProfiles.route) },
                 onNavigateToSupportersContributors = {
                     navController.navigate(Screen.SupportersContributors.route)
@@ -1302,11 +1319,13 @@ fun NuvioNavHost(
             )
         }
 
+        // TG-START: Telegram auth destination (re-apply on upstream merge)
         composable(Screen.TelegramAuth.route) {
             com.nuvio.tv.ui.screens.settings.telegram.TelegramAuthScreen(
                 onBackPress = { navController.popBackStack() }
             )
         }
+        // TG-END
 
         composable(Screen.LayoutSettings.route) {
             LayoutSettingsScreen(

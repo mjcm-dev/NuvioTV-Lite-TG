@@ -1,7 +1,9 @@
 package com.nuvio.tv.ui.screens.stream
 
 import android.content.Context
+// TG-START: Uri for TG scope key parsing (re-apply on upstream merge)
 import android.net.Uri
+// TG-END
 import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -68,7 +70,9 @@ import javax.inject.Inject
 
 private const val TAG = "StreamScreenViewModel"
 private const val DIRECT_AUTOPLAY_HARD_TIMEOUT_MS = 60_000L
+// TG-START: preferred-resume cache TTL (re-apply on upstream merge)
 private const val PREFERRED_STREAM_CACHE_FALLBACK_MS = 30L * 24L * 60L * 60L * 1000L
+// TG-END
 
 @HiltViewModel
 class StreamScreenViewModel @Inject constructor(
@@ -92,6 +96,7 @@ class StreamScreenViewModel @Inject constructor(
     private val subtitleRepository: com.nuvio.tv.domain.repository.SubtitleRepository,
     private val subtitleFileCache: com.nuvio.tv.core.player.SubtitleFileCache,
     private val torrentService: TorrentService,
+    profileManager: com.nuvio.tv.core.profile.ProfileManager,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     private var autoPlayHandledForSession = false
@@ -130,6 +135,9 @@ class StreamScreenViewModel @Inject constructor(
     private val contentId: String? = savedStateHandle.getOptionalString("contentId")
     private val contentName: String? = savedStateHandle.getOptionalString("contentName")
     private val contentLanguage: String? = savedStateHandle.getOptionalString("contentLanguage")
+    private val playbackProfileId: Int = savedStateHandle.get<String>("profileId")?.toIntOrNull()
+        ?: profileManager.activeProfileId.value
+    // TG-START: resume/cache keys incl. TG scope support (re-apply on upstream merge)
     private val startFromBeginning: Boolean = savedStateHandle.get<String>("startFromBeginning")
         ?.toBooleanStrictOrNull()
         ?: false
@@ -152,6 +160,7 @@ class StreamScreenViewModel @Inject constructor(
             episode = episode
         )
     }
+    // TG-END
 
     private val _uiState = MutableStateFlow(
         StreamScreenUiState(
@@ -191,6 +200,7 @@ class StreamScreenViewModel @Inject constructor(
         }
     }
 
+    // TG-START: bring preferred resume stream (incl. TG scope) to front (re-apply on upstream merge)
     private fun prioritizePreferredStream(
         streams: List<Stream>,
         preferredUrl: String?
@@ -207,6 +217,7 @@ class StreamScreenViewModel @Inject constructor(
             preferred.any { it.stableKey() == candidate.stableKey() }
         }
     }
+    // TG-END
 
     private fun scheduleStreamBadgePresentation(groups: List<AddonStreams>) {
         // Only process addon groups that haven't been badged yet
@@ -237,10 +248,12 @@ class StreamScreenViewModel @Inject constructor(
                                 }
                             )
                         }
+                        // TG-START: keep preferred resume stream first on badge updates (re-apply on upstream merge)
                         val updatedAllStreams = prioritizePreferredStream(
                             streams = updatedAddonStreams.flatMap { it.streams },
                             preferredUrl = state.preferredResumeStreamUrl
                         )
+                        // TG-END
                         val currentFilter = state.selectedAddonFilter
                         val filteredStreams = if (currentFilter == null) {
                             updatedAllStreams
@@ -382,7 +395,9 @@ class StreamScreenViewModel @Inject constructor(
         streamLoadScope = newScope
         streamLoadJob = newScope.launch {
             streamLoadCompleted = false
+            // TG-START: resolve preferred resume URL incl. TG scope (re-apply on upstream merge)
             val preferredResumeStreamUrl = resolvePreferredResumeStreamUrl()
+            // TG-END
             val playerSettings = playerSettingsDataStore.playerSettings.first()
             if (manualSelection) {
                 directAutoPlayModeInitializedForSession = true
@@ -424,7 +439,9 @@ class StreamScreenViewModel @Inject constructor(
                         isDirectAutoPlayFlow = true,
                         showDirectAutoPlayOverlay = true,
                         autoPlayDecided = true,
+                        // TG-START: expose preferred resume URL to UI (re-apply on upstream merge)
                         preferredResumeStreamUrl = preferredResumeStreamUrl,
+                        // TG-END
                         directAutoPlayMessage = if (playerSettings.showPlayerLoadingStatus) {
                             context.getString(R.string.stream_finding_source)
                         } else {
@@ -436,15 +453,19 @@ class StreamScreenViewModel @Inject constructor(
                 updateUiStateIfChanged {
                     it.copy(
                         autoPlayDecided = true,
+                        // TG-START: expose preferred resume URL to UI (re-apply on upstream merge)
                         preferredResumeStreamUrl = preferredResumeStreamUrl
+                        // TG-END
                     )
                 }
             }
 
             if (!autoPlayHandledForSession && playerSettings.streamReuseLastLinkEnabled) {
+                // TG-START: cache lookup across fallback keys incl. TG scope (re-apply on upstream merge)
                 val cached = getValidCachedStream(
                     maxAgeMs = playerSettings.streamReuseLastLinkCacheHours * 60L * 60L * 1000L
                 )
+                // TG-END
                 if (cached != null) {
                     autoPlayHandledForSession = true
                     resolvedAutoPlayTarget = true
@@ -473,6 +494,7 @@ class StreamScreenViewModel @Inject constructor(
                                 episode = episode,
                                 episodeTitle = episodeName,
                                 bingeGroup = cached.bingeGroup,
+                                profileId = playbackProfileId,
                                 filename = cached.filename,
                                 videoHash = cached.videoHash,
                                 videoSize = cached.videoSize,
@@ -534,6 +556,7 @@ class StreamScreenViewModel @Inject constructor(
                 }
 
                 val allStreams = mergedAddonStreams.flatMap { it.streams }
+                // TG-START: order by preferred resume stream incl. TG scope (re-apply on upstream merge)
                 val preferredStreams = allStreams.filter { stream ->
                     streamUrlMatchesPreferred(
                         candidateUrl = stream.getStreamUrl(),
@@ -548,6 +571,7 @@ class StreamScreenViewModel @Inject constructor(
                     )
                 }
                 val orderedStreams = prioritizePreferredStream(allStreams, preferredResumeStreamUrl)
+                // TG-END
                 val availableAddons = mergedAddonStreams.map { it.addonName }
                 // Auto-select only after all addons have responded or the
                 // configured timeout has elapsed. This gives slower addons a
@@ -558,7 +582,9 @@ class StreamScreenViewModel @Inject constructor(
                     null
                 } else {
                     StreamAutoPlaySelector.selectAutoPlayStream(
+                        // TG-START: select from TG-ordered streams (else allStreams; re-apply on upstream merge)
                         streams = orderedStreams,
+                        // TG-END
                         mode = playerSettings.streamAutoPlayMode,
                         regexPattern = playerSettings.streamAutoPlayRegex,
                         source = playerSettings.streamAutoPlaySource,
@@ -574,17 +600,21 @@ class StreamScreenViewModel @Inject constructor(
                 }
 
                 val currentFilter = _uiState.value.selectedAddonFilter
+                // TG-START: filter TG-ordered streams (else allStreams; re-apply on upstream merge)
                 val filteredStreams = if (currentFilter == null) {
                     orderedStreams
                 } else {
                     orderedStreams.filter { it.addonName == currentFilter }
                 }
+                // TG-END
 
                 updateUiStateIfChanged {
                     it.copy(
                         isLoading = false,
                         addonStreams = mergedAddonStreams,
+                        // TG-START: expose TG-ordered streams (else allStreams; re-apply on upstream merge)
                         allStreams = orderedStreams,
+                        // TG-END
                         filteredStreams = filteredStreams,
                         availableAddons = availableAddons,
                         sourceChips = mergeSourceChipStatuses(
@@ -672,19 +702,25 @@ class StreamScreenViewModel @Inject constructor(
                                 val updatedAllStreams = updatedGroups.flatMap { addonStreams ->
                                     addonStreams.streams
                                 }
+                                // TG-START: keep TG-ordered streams on debrid updates (re-apply on upstream merge)
                                 val orderedStreams = prioritizePreferredStream(
                                     streams = updatedAllStreams,
                                     preferredUrl = state.preferredResumeStreamUrl
                                 )
+                                // TG-END
                                 val currentFilter = state.selectedAddonFilter
+                                // TG-START: filter TG-ordered streams (else updatedAllStreams; re-apply on upstream merge)
                                 val filteredStreams = if (currentFilter == null) {
                                     orderedStreams
                                 } else {
                                     orderedStreams.filter { it.addonName == currentFilter }
                                 }
+                                // TG-END
                                 state.copy(
                                     addonStreams = updatedGroups,
+                                    // TG-START: expose TG-ordered streams (else updatedAllStreams; re-apply on upstream merge)
                                     allStreams = orderedStreams,
+                                    // TG-END
                                     filteredStreams = filteredStreams
                                 )
                             }
@@ -1177,15 +1213,17 @@ class StreamScreenViewModel @Inject constructor(
         }
     }
 
+    // TG-START: preferred resume URL incl. TG scope (re-apply on upstream merge)
+    // Adapted to v1.4.5: progress lookups carry playbackProfileId.
     private suspend fun resolvePreferredResumeStreamUrl(): String? {
         if (startFromBeginning) return null
 
         val progressContentId = contentId
         if (!progressContentId.isNullOrBlank()) {
             val progress = if (season != null && episode != null) {
-                watchProgressRepository.getEpisodeProgress(progressContentId, season, episode).first()
+                watchProgressRepository.getEpisodeProgress(progressContentId, season, episode, playbackProfileId).first()
             } else {
-                watchProgressRepository.getProgress(progressContentId).first()
+                watchProgressRepository.getProgress(progressContentId, playbackProfileId).first()
             }
             val progressUrl = progress
                 ?.takeIf { it.isInProgress() }
@@ -1202,7 +1240,9 @@ class StreamScreenViewModel @Inject constructor(
         Log.d(TAG, "Preferred resume source from cache: ${cacheUrl ?: "<none>"}")
         return cacheUrl
     }
+    // TG-END
 
+    // TG-START: cache lookup across fallback keys incl. TG scope (re-apply on upstream merge)
     private suspend fun getValidCachedStream(maxAgeMs: Long): com.nuvio.tv.data.local.CachedStreamLink? {
         for (candidateKey in streamCacheKeyCandidates) {
             val cached = streamLinkCacheDataStore.getValid(
@@ -1218,6 +1258,7 @@ class StreamScreenViewModel @Inject constructor(
         }
         return null
     }
+    // TG-END
 
     suspend fun resolveStreamForPlayback(stream: Stream): StreamPlaybackInfo? {
         if (!directDebridResolver.shouldResolveToPlayableStream(stream)) {
@@ -1431,6 +1472,7 @@ class StreamScreenViewModel @Inject constructor(
             episode = episode,
             episodeTitle = episodeName,
             bingeGroup = stream.behaviorHints?.bingeGroup,
+            profileId = playbackProfileId,
             filename = stream.behaviorHints?.filename,
             videoHash = stream.behaviorHints?.videoHash,
             videoSize = stream.behaviorHints?.videoSize,
@@ -1492,9 +1534,14 @@ class StreamScreenViewModel @Inject constructor(
     suspend fun getResumePositionMs(playbackInfo: StreamPlaybackInfo): Long {
         val contentId = playbackInfo.contentId ?: return 0L
         val progress = if (playbackInfo.season != null && playbackInfo.episode != null) {
-            watchProgressRepository.getEpisodeProgress(contentId, playbackInfo.season, playbackInfo.episode)
+            watchProgressRepository.getEpisodeProgress(
+                contentId,
+                playbackInfo.season,
+                playbackInfo.episode,
+                playbackInfo.profileId
+            )
         } else {
-            watchProgressRepository.getProgress(contentId)
+            watchProgressRepository.getProgress(contentId, playbackInfo.profileId)
         }
         val wp = progress.first() ?: return 0L
         // Don't resume if completed
@@ -1688,7 +1735,8 @@ class StreamScreenViewModel @Inject constructor(
             season = playbackInfo.season,
             episode = playbackInfo.episode,
             episodeTitle = playbackInfo.episodeTitle,
-            year = playbackInfo.year
+            year = playbackInfo.year,
+            profileId = playbackInfo.profileId
         )
 
         val settings = playerSettingsDataStore.playerSettings.first()
@@ -1868,7 +1916,7 @@ class StreamScreenViewModel @Inject constructor(
             )
             Log.d(TAG, "Saving external player progress: pos=${positionMs}ms, dur=${effectiveDuration}ms, " +
                 "content=$contentId, video=$videoId")
-            watchProgressRepository.saveProgress(progress)
+            watchProgressRepository.saveProgress(progress, playbackInfo.profileId)
 
             val progressPercent = if (effectiveDuration > 0L) {
                 (positionMs.toFloat() / effectiveDuration.toFloat() * 100f).coerceIn(0f, 100f)
@@ -1913,6 +1961,7 @@ class StreamScreenViewModel @Inject constructor(
 
 }
 
+// TG-START: multi-key cache lookup incl. TG scope (re-apply on upstream merge)
 private fun buildStreamCacheKeyCandidates(
     contentType: String,
     videoId: String,
@@ -1959,7 +2008,9 @@ private fun buildStreamCacheKeyCandidates(
 
     return keys.toList()
 }
+// TG-END
 
+// TG-START: exact-or-TG-scope URL match for resume (re-apply on upstream merge)
 private fun streamUrlMatchesPreferred(candidateUrl: String?, preferredUrl: String?): Boolean {
     if (candidateUrl.isNullOrBlank() || preferredUrl.isNullOrBlank()) return false
     if (candidateUrl == preferredUrl) return true
@@ -1972,7 +2023,9 @@ private fun streamUrlMatchesPreferred(candidateUrl: String?, preferredUrl: Strin
 
     return false
 }
+// TG-END
 
+// TG-START: stable TG identity chat+message, fileId ignored (re-apply on upstream merge)
 private fun telegramScopeKey(url: String): String? {
     return runCatching {
         val uri = Uri.parse(url)
@@ -1985,7 +2038,9 @@ private fun telegramScopeKey(url: String): String? {
         "tg|$chatId|$messageId"
     }.getOrNull()
 }
+// TG-END
 
+// TG-START: primary cache key incl. episode scope (re-apply on upstream merge)
 private fun buildPrimaryStreamCacheKey(
     contentType: String,
     videoId: String,
@@ -2008,6 +2063,7 @@ private fun buildPrimaryStreamCacheKey(
     if (normalizedContentId.isNotBlank()) return "$normalizedType|$normalizedContentId"
     return "$normalizedType|$normalizedVideoId"
 }
+// TG-END
 
 private fun Stream.badgeMergeKey(): String {
     infoHash?.lowercase()?.let { hash -> return "$addonName|$hash:${fileIdx ?: ""}" }
@@ -2043,6 +2099,7 @@ data class StreamPlaybackInfo(
     val episode: Int?,
     val episodeTitle: String?,
     val bingeGroup: String?,
+    val profileId: Int,
     val filename: String? = null,
     val videoHash: String? = null,
     val videoSize: Long? = null,

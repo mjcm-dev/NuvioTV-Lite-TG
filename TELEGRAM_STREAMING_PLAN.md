@@ -1,3 +1,5 @@
+<!-- TG-ONLY-FILE: Telegram module doc — keep whole file on upstream merge -->
+
 # NuvioTV-Lite-TG — Telegram Streaming: Plan, Análisis y Conclusiones
 
 > **Fecha**: 26 agosto 2026

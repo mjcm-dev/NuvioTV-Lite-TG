@@ -25,6 +25,7 @@ import com.nuvio.tv.core.image.StaleWhileRevalidateCacheStrategy
 import com.nuvio.tv.core.runtime.PluginRuntimeHooks
 import com.nuvio.tv.core.sync.androidtv.AndroidTvChannelSyncService
 import com.nuvio.tv.core.network.IPv4FirstDns
+import com.nuvio.tv.data.local.ImagePerformancePreferences
 import com.nuvio.tv.data.local.SentrySettingsDataStore
 import com.nuvio.tv.data.simkl.SimklAnimeIdPreferenceHolder
 import dagger.hilt.android.HiltAndroidApp
@@ -41,8 +42,11 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
 
     @Inject lateinit var androidTvChannelSyncService: AndroidTvChannelSyncService
     @Inject lateinit var sentrySettingsDataStore: SentrySettingsDataStore
-    @Inject lateinit var simklAnimeIdPreferenceHolder: SimklAnimeIdPreferenceHolder
+    @Inject lateinit var imagePerformancePreferences: ImagePerformancePreferences
+    // TG-START: Telegram session injection (re-apply on upstream merge)
     @Inject lateinit var telegramClientManager: com.nuvio.tv.core.telegram.TelegramClientManager
+    // TG-END
+    @Inject lateinit var simklAnimeIdPreferenceHolder: SimklAnimeIdPreferenceHolder
 
     companion object {
         /**
@@ -87,7 +91,9 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
             SentryInitializer.start(this, sentrySettingsDataStore)
         }
         PluginRuntimeHooks.onApplicationCreate(this)
+        // TG-START: resume persisted Telegram session (re-apply on upstream merge)
         telegramClientManager.resumePersistedSession()
+        // TG-END
         if (!AppFeaturePolicy.liteMode) {
             androidTvChannelSyncService.start()
         }
@@ -108,8 +114,7 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
     }
 
     override fun newImageLoader(context: android.content.Context): ImageLoader {
-        // Memory knobs follow the device tier too, so a full build on a 2GB box gets Lite's cuts.
-        val lowMemoryProfile = AppFeaturePolicy.liteMode || DeviceMemoryTier.isLowRam
+        val lowMemoryProfile = DeviceMemoryTier.lowMemoryProfile
         val imageOkHttpClient by lazy {
             val imageDispatcher = okhttp3.Dispatcher().apply {
                 maxRequests = 32
@@ -192,9 +197,9 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
             .precision(coil3.size.Precision.INEXACT)
             // Hardware bitmaps are RGBA_8888; keeping them off lets allowRgb565 halve poster bytes.
             .allowHardware(false)
-            // Upstream turned rgb565 off for quality; keep it only where the halved
-            // poster bytes actually matter.
-            .allowRgb565(lowMemoryProfile)
+            // Upstream's toggle trades poster quality against bytes; where the bytes are not
+            // optional the setting is forced on, and its row is hidden to match.
+            .allowRgb565(lowMemoryProfile || imagePerformancePreferences.rgb565Enabled)
             .bitmapFactoryMaxParallelism(if (lowMemoryProfile) 2 else 4)
             .build()
     }

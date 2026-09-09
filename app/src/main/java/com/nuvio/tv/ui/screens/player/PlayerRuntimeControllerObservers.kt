@@ -280,12 +280,12 @@ internal fun PlayerRuntimeController.observeEpisodeWatchProgress() {
     if (type.lowercase() != "series") return
     val baseId = id.split(":").firstOrNull() ?: id
     scope.launch {
-        watchProgressRepository.getAllEpisodeProgress(baseId).collectLatest { progressMap ->
+        watchProgressRepository.getAllEpisodeProgress(baseId, profileId).collectLatest { progressMap ->
             _uiState.update { it.copy(episodeWatchProgressMap = progressMap) }
         }
     }
     scope.launch {
-        watchedItemsPreferences.getWatchedEpisodesForContent(baseId).collectLatest { watchedSet ->
+        watchedItemsPreferences.getWatchedEpisodesForContent(baseId, profileId).collectLatest { watchedSet ->
             _uiState.update { it.copy(watchedEpisodeKeys = watchedSet) }
         }
     }
@@ -509,9 +509,14 @@ internal fun PlayerRuntimeController.loadSavedProgressFor(season: Int?, episode:
         val progress = if (isCloudLibraryPlayback) {
             loadCloudLibraryResumeProgress()
         } else if (season != null && episode != null) {
-            watchProgressRepository.getEpisodeProgress(progressContentId!!, season, episode).firstOrNull()
+            watchProgressRepository.getEpisodeProgress(
+                progressContentId!!,
+                season,
+                episode,
+                profileId
+            ).firstOrNull()
         } else {
-            watchProgressRepository.getProgress(progressContentId!!).firstOrNull()
+            watchProgressRepository.getProgress(progressContentId!!, profileId).firstOrNull()
         }
 
         progress?.let { saved ->
@@ -553,9 +558,14 @@ internal suspend fun PlayerRuntimeController.loadSavedProgressSuspend(season: In
     val progress = if (isCloudLibraryPlayback) {
         loadCloudLibraryResumeProgress()
     } else if (season != null && episode != null) {
-        watchProgressRepository.getEpisodeProgress(progressContentId!!, season, episode).firstOrNull()
+        watchProgressRepository.getEpisodeProgress(
+            progressContentId!!,
+            season,
+            episode,
+            profileId
+        ).firstOrNull()
     } else {
-        watchProgressRepository.getProgress(progressContentId!!).firstOrNull()
+        watchProgressRepository.getProgress(progressContentId!!, profileId).firstOrNull()
     }
 
     progress?.let { saved ->
@@ -652,6 +662,8 @@ internal fun PlayerRuntimeController.fetchSkipIntervals(id: String?, season: Int
 
 internal fun PlayerRuntimeController.tryApplyPendingResumeProgress(player: Player) {
     val saved = pendingResumeProgress ?: return
+    // TG-START: keep pending resume while not seekable (TG progressive sources report
+    // seekability late; clearing here loses resume; re-apply on upstream merge)
     if (!player.isCurrentMediaItemSeekable) {
         Log.d(
             PlayerRuntimeController.TAG,
@@ -659,6 +671,7 @@ internal fun PlayerRuntimeController.tryApplyPendingResumeProgress(player: Playe
         )
         return
     }
+    // TG-END
     val duration = player.duration
     val target = when {
         duration > 0L -> saved.resolveResumePosition(duration)

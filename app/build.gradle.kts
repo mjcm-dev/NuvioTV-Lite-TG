@@ -23,14 +23,6 @@ fun resolveProperty(dev: Properties, local: Properties, key: String, fallback: S
         ?: fallback
 }
 
-fun resolveAnyProperty(dev: Properties, local: Properties, vararg keys: String): String {
-    for (key in keys) {
-        val value = resolveProperty(dev, local, key)
-        if (value.isNotBlank()) return value
-    }
-    return ""
-}
-
 fun buildConfigString(value: String): String {
     return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
 }
@@ -112,8 +104,8 @@ android {
         applicationId = "com.nuvio.tv"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1053
-        versionName = "0.8.12-beta"
+        versionCode = 1055
+        versionName = "0.9.0-beta"
 
         buildConfigField("String", "PARENTAL_GUIDE_API_URL", "\"${localProperties.getProperty("PARENTAL_GUIDE_API_URL", "")}\"")
         buildConfigField("String", "INTRODB_API_URL", "\"${localProperties.getProperty("INTRODB_API_URL", "")}\"")
@@ -153,8 +145,10 @@ android {
         buildConfigField("String", "SENTRY_DSN", buildConfigString(sentryDsn))
 
         // In-app updater (GitHub Releases)
-        buildConfigField("String", "GITHUB_OWNER", "\"hackerslash\"")
-        buildConfigField("String", "GITHUB_REPO", "\"NuvioTV-Lite\"")
+        // TG-START: OTA points to our own fork releases (re-apply on upstream merge)
+        buildConfigField("String", "GITHUB_OWNER", "\"mjcm-dev\"")
+        buildConfigField("String", "GITHUB_REPO", "\"NuvioTV-Lite-TG\"")
+        // TG-END
 
         // Lite edition markers. Defaults for full/playstore; overridden by the lite flavor.
         buildConfigField("boolean", "FEATURE_LITE_EDITION", "false")
@@ -191,9 +185,11 @@ android {
             // Kept well above every previously side-loaded CI build (max 1046) because
             // Android's installer requires a higher versionCode to update, not just a
             // higher versionName. Bump by 1 per release.
-            versionCode = 10013
-            versionName = "1.4.4"
-            versionNameSuffix = "-lite-TG"
+            // TG-START: own-fork release identity (re-apply on upstream merge)
+            versionCode = 10014
+            versionName = "1.4.5"
+            versionNameSuffix = "-lite-tg"
+            // TG-END
             buildConfigField("boolean", "FEATURE_IN_APP_UPDATES_ENABLED", "true")
             buildConfigField("boolean", "FEATURE_EXTERNAL_TRAILERS_ENABLED", "false")
             buildConfigField("boolean", "FEATURE_EXTERNAL_PLAYBACK_KEEP_ALIVE_ENABLED", "false")
@@ -254,9 +250,9 @@ android {
             buildConfigField("String", "SENTRY_ENVIRONMENT", buildConfigString("debug"))
 
             // Dev environment (from local.dev.properties)
-            buildConfigField("String", "SUPABASE_URL", buildConfigString(resolveAnyProperty(devProperties, localProperties, "NUVIO_SUPABASE_URL", "SUPABASE_URL")))
-            buildConfigField("String", "SUPABASE_ANON_KEY", buildConfigString(resolveAnyProperty(devProperties, localProperties, "NUVIO_SUPABASE_ANON_KEY", "SUPABASE_ANON_KEY")))
-            buildConfigField("String", "SUPABASE_FALLBACK_URL", buildConfigString(resolveAnyProperty(devProperties, localProperties, "NUVIO_SUPABASE_FALLBACK_URL", "SUPABASE_FALLBACK_URL")))
+            buildConfigField("String", "SUPABASE_URL", buildConfigString(resolveProperty(devProperties, localProperties, "NUVIO_SUPABASE_URL")))
+            buildConfigField("String", "SUPABASE_ANON_KEY", buildConfigString(resolveProperty(devProperties, localProperties, "NUVIO_SUPABASE_ANON_KEY")))
+            buildConfigField("String", "SUPABASE_FALLBACK_URL", buildConfigString(resolveProperty(devProperties, localProperties, "NUVIO_SUPABASE_FALLBACK_URL")))
             buildConfigField("String", "TV_LOGIN_WEB_BASE_URL", "\"${devProperties.getProperty("TV_LOGIN_WEB_BASE_URL", "https://nuvio.tv/tv-login")}\"")
             buildConfigField("String", "DEVICE_LOGIN_WEB_BASE_URL", "\"${devProperties.getProperty("DEVICE_LOGIN_WEB_BASE_URL", "https://nuvio.tv/link")}\"")
             buildConfigField("String", "PARENTAL_GUIDE_API_URL", "\"${devProperties.getProperty("PARENTAL_GUIDE_API_URL", "")}\"")
@@ -264,6 +260,9 @@ android {
             buildConfigField("String", "TRAILER_API_URL", "\"${devProperties.getProperty("TRAILER_API_URL", "")}\"")
             buildConfigField("String", "IMDB_RATINGS_API_BASE_URL", "\"${devProperties.getProperty("IMDB_RATINGS_API_BASE_URL", "")}\"")
             buildConfigField("String", "IMDB_TAPFRAME_API_BASE_URL", "\"${devProperties.getProperty("IMDB_TAPFRAME_API_BASE_URL", "")}\"")
+            // TG-START: TMDB key feeds TG title seeds (re-apply on upstream merge)
+            buildConfigField("String", "TMDB_API_KEY", buildConfigString(resolveProperty(devProperties, localProperties, "TMDB_API_KEY")))
+            // TG-END
             buildConfigField("String", "SUPPORTERS_API_BASE_URL", buildConfigString(resolveProperty(devProperties, localProperties, "SUPPORTERS_API_BASE_URL", "https://nuvio.tv/")))
             buildConfigField("String", "SUPPORT_URL", buildConfigString(resolveProperty(devProperties, localProperties, "SUPPORT_URL", "https://nuvio.tv/support")))
             buildConfigField("String", "AVATAR_PUBLIC_BASE_URL", "\"${devProperties.getProperty("AVATAR_PUBLIC_BASE_URL", localProperties.getProperty("AVATAR_PUBLIC_BASE_URL", ""))}\"")
@@ -271,8 +270,10 @@ android {
             buildConfigField("String", "PLAYBACK_REPORTS_BASE_URL", buildConfigString(resolveProperty(devProperties, localProperties, "PLAYBACK_REPORTS_BASE_URL")))
             buildConfigField("String", "PREMIUMIZE_CLIENT_ID", "\"${devProperties.getProperty("PREMIUMIZE_CLIENT_ID", localProperties.getProperty("PREMIUMIZE_CLIENT_ID", ""))}\"")
             buildConfigField("String", "SPONSOR_NAMES", buildConfigString(sponsorNames))
-            buildConfigField("int", "TELEGRAM_API_ID", "${localProperties.getProperty("TELEGRAM_API_ID", "0")}")
-            buildConfigField("String", "TELEGRAM_API_HASH", "\"${localProperties.getProperty("TELEGRAM_API_HASH", "")}\"")
+            // TG-START: Telegram API credentials (re-apply on upstream merge)
+            buildConfigField("int", "TELEGRAM_API_ID", resolveProperty(devProperties, localProperties, "TELEGRAM_API_ID", "0"))
+            buildConfigField("String", "TELEGRAM_API_HASH", buildConfigString(resolveProperty(devProperties, localProperties, "TELEGRAM_API_HASH")))
+            // TG-END
         }
         release {
             isMinifyEnabled = true
@@ -291,9 +292,9 @@ android {
             buildConfigField("String", "SENTRY_ENVIRONMENT", buildConfigString("production"))
 
             // Production environment (from local.properties)
-            buildConfigField("String", "SUPABASE_URL", buildConfigString(resolveAnyProperty(devProperties, localProperties, "NUVIO_SUPABASE_URL", "SUPABASE_URL")))
-            buildConfigField("String", "SUPABASE_ANON_KEY", buildConfigString(resolveAnyProperty(devProperties, localProperties, "NUVIO_SUPABASE_ANON_KEY", "SUPABASE_ANON_KEY")))
-            buildConfigField("String", "SUPABASE_FALLBACK_URL", buildConfigString(resolveAnyProperty(devProperties, localProperties, "NUVIO_SUPABASE_FALLBACK_URL", "SUPABASE_FALLBACK_URL")))
+            buildConfigField("String", "SUPABASE_URL", buildConfigString(localProperties.getProperty("NUVIO_SUPABASE_URL", "")))
+            buildConfigField("String", "SUPABASE_ANON_KEY", buildConfigString(localProperties.getProperty("NUVIO_SUPABASE_ANON_KEY", "")))
+            buildConfigField("String", "SUPABASE_FALLBACK_URL", buildConfigString(localProperties.getProperty("NUVIO_SUPABASE_FALLBACK_URL", "")))
             buildConfigField("String", "TV_LOGIN_WEB_BASE_URL", "\"${localProperties.getProperty("TV_LOGIN_WEB_BASE_URL", "https://nuvio.tv/tv-login")}\"")
             buildConfigField("String", "DEVICE_LOGIN_WEB_BASE_URL", "\"${localProperties.getProperty("DEVICE_LOGIN_WEB_BASE_URL", "https://nuvio.tv/link")}\"")
             buildConfigField("String", "PARENTAL_GUIDE_API_URL", "\"${localProperties.getProperty("PARENTAL_GUIDE_API_URL", "")}\"")
@@ -301,6 +302,9 @@ android {
             buildConfigField("String", "TRAILER_API_URL", "\"${localProperties.getProperty("TRAILER_API_URL", "")}\"")
             buildConfigField("String", "IMDB_RATINGS_API_BASE_URL", "\"${localProperties.getProperty("IMDB_RATINGS_API_BASE_URL", "")}\"")
             buildConfigField("String", "IMDB_TAPFRAME_API_BASE_URL", "\"${localProperties.getProperty("IMDB_TAPFRAME_API_BASE_URL", "")}\"")
+            // TG-START: TMDB key feeds TG title seeds (re-apply on upstream merge)
+            buildConfigField("String", "TMDB_API_KEY", buildConfigString(resolveProperty(devProperties, localProperties, "TMDB_API_KEY")))
+            // TG-END
             buildConfigField("String", "SUPPORTERS_API_BASE_URL", buildConfigString(localProperties.getProperty("SUPPORTERS_API_BASE_URL", "https://nuvio.tv/")))
             buildConfigField("String", "SUPPORT_URL", buildConfigString(localProperties.getProperty("SUPPORT_URL", "https://nuvio.tv/support")))
             buildConfigField("String", "AVATAR_PUBLIC_BASE_URL", "\"${localProperties.getProperty("AVATAR_PUBLIC_BASE_URL", "")}\"")
@@ -308,8 +312,10 @@ android {
             buildConfigField("String", "PLAYBACK_REPORTS_BASE_URL", buildConfigString(localProperties.getProperty("PLAYBACK_REPORTS_BASE_URL", "")))
             buildConfigField("String", "PREMIUMIZE_CLIENT_ID", "\"${localProperties.getProperty("PREMIUMIZE_CLIENT_ID", "")}\"")
             buildConfigField("String", "SPONSOR_NAMES", buildConfigString(sponsorNames))
-            buildConfigField("int", "TELEGRAM_API_ID", "${localProperties.getProperty("TELEGRAM_API_ID", "0")}")
-            buildConfigField("String", "TELEGRAM_API_HASH", "\"${localProperties.getProperty("TELEGRAM_API_HASH", "")}\"")
+            // TG-START: Telegram API credentials (re-apply on upstream merge)
+            buildConfigField("int", "TELEGRAM_API_ID", resolveProperty(devProperties, localProperties, "TELEGRAM_API_ID", "0"))
+            buildConfigField("String", "TELEGRAM_API_HASH", buildConfigString(resolveProperty(devProperties, localProperties, "TELEGRAM_API_HASH")))
+            // TG-END
         }
         create("benchmark") {
             initWith(buildTypes.getByName("release"))
@@ -553,7 +559,7 @@ dependencies {
     // Local nextlib-mediainfo fork (static FFmpeg; no libav*.so in final AAR)
     implementation(files("libs/nextlib-mediainfo-local.aar"))
     implementation("io.github.abdallahmehiz:mpv-android-lib:0.1.12")
-    implementation("dev.chrisbanes.haze:haze-android:0.7.3") {
+    implementation("dev.chrisbanes.haze:haze-android:1.7.2") {
         exclude(group = "org.jetbrains.compose.ui")
         exclude(group = "org.jetbrains.compose.foundation")
     }

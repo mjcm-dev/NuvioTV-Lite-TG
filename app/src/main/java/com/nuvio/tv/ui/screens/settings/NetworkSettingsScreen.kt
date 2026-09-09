@@ -65,6 +65,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.nuvio.tv.R
 import com.nuvio.tv.core.build.AppFeaturePolicy
+import com.nuvio.tv.core.device.DeviceMemoryTier
 import com.nuvio.tv.data.local.Dv7HandlingMode
 import com.nuvio.tv.data.local.InternalPlayerEngine
 import com.nuvio.tv.domain.model.ExperienceMode
@@ -84,12 +85,14 @@ private interface ClearCwCacheEntryPoint {
     fun cwEnrichmentCache(): com.nuvio.tv.data.local.ContinueWatchingEnrichmentCache
 }
 
+// TG-START: entry point to clear TG downloads from settings (re-apply on upstream merge)
 @dagger.hilt.EntryPoint
 @dagger.hilt.InstallIn(dagger.hilt.components.SingletonComponent::class)
 private interface TelegramStorageCleanupEntryPoint {
     fun telegramClientManager(): com.nuvio.tv.core.telegram.TelegramClientManager
     fun telegramStorageManager(): com.nuvio.tv.core.telegram.TelegramStorageManager
 }
+// TG-END
 
 @dagger.hilt.EntryPoint
 @dagger.hilt.InstallIn(dagger.hilt.components.SingletonComponent::class)
@@ -469,6 +472,21 @@ fun AdvancedSettingsContent(
                         )
                     }
                 )
+                // Forced on where poster bytes are not optional, so the row would not do anything.
+                if (!DeviceMemoryTier.lowMemoryProfile) {
+                    SettingsToggleRow(
+                        title = stringResource(R.string.advanced_rgb565),
+                        subtitle = stringResource(R.string.advanced_rgb565_subtitle),
+                        checked = uiState.rgb565Enabled,
+                        onToggle = {
+                            viewModel.onEvent(
+                                AdvancedSettingsEvent.SetRgb565Enabled(
+                                    !uiState.rgb565Enabled
+                                )
+                            )
+                        }
+                    )
+                }
                 val profileManager = remember {
                     dagger.hilt.android.EntryPointAccessors.fromApplication(
                         context.applicationContext,
@@ -755,6 +773,7 @@ fun AdvancedSettingsContent(
             }
         }
 
+        // TG-START: "free storage keeping TG session" action (re-apply on upstream merge)
         item(key = "clear_safe_storage") {
             SettingsGroupCard(modifier = Modifier.fillMaxWidth()) {
                 var cleared by remember { mutableStateOf(false) }
@@ -790,6 +809,7 @@ fun AdvancedSettingsContent(
                 )
             }
         }
+        // TG-END
 
         if (dvPlayerSettings.internalPlayerEngine == InternalPlayerEngine.EXOPLAYER ||
             dvPlayerSettings.internalPlayerEngine == InternalPlayerEngine.AUTO) {

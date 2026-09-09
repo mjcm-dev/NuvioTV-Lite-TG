@@ -1,3 +1,4 @@
+// TG-ONLY-FILE: Telegram module — keep whole file on upstream merge
 package com.nuvio.tv.core.telegram
 
 import org.junit.Assert.assertEquals
@@ -65,4 +66,17 @@ class TelegramTitleMatcherTest {
         assertEquals(0.0, TelegramTitleMatcher.score("", "algo"), 0.001)
         assertEquals(0.0, TelegramTitleMatcher.score("algo", ""), 0.001)
     }
+
+    // TG-START: sequel-number regression cases (re-apply on upstream merge)
+    @Test
+    fun `sequel files with uploader tags reach threshold`() {
+        val titles = listOf("El diablo viste de Prada 2", "The Devil Wears Prada 2")
+
+        val prefixed = TelegramMediaParser.parse("z El diablo viste de Prada 2.mp4")
+        assertTrue(TelegramTitleMatcher.bestScore(titles, prefixed.cleanTitle) >= 0.70)
+
+        val tagged = TelegramMediaParser.parse("El diablo viste de Prada 2 (2026)-kowalski&xusman.mkv")
+        assertTrue(TelegramTitleMatcher.bestScore(titles, tagged.cleanTitle) >= 0.70)
+    }
+    // TG-END
 }

@@ -159,6 +159,7 @@ internal fun PlayerRuntimeController.initializePlayer(
         _uiState.update { it.copy(error = context.getString(R.string.player_error_no_stream_url), showLoadingOverlay = false) }
         return
     }
+    mpvMediaLoadPrepared = false
 
     scope.launch {
         try {
@@ -215,6 +216,8 @@ internal fun PlayerRuntimeController.initializePlayer(
                 contentOriginalLanguage = contentLanguage
             )
             mpvPreferredAudioLanguages = preferredAudioLanguages
+            mpvHi10pGnextSoftwareFallbackEnabledSetting =
+                playerSettings.mpvHi10pGnextSoftwareFallbackEnabled
             mpvHardwareDecodeModeSetting = playerSettings.mpvHardwareDecodeMode
             var effectiveInternalPlayerEngine = overrideInternalPlayerEngine ?: playerSettings.internalPlayerEngine
             if (effectiveInternalPlayerEngine == InternalPlayerEngine.AUTO) {
@@ -532,6 +535,8 @@ internal fun PlayerRuntimeController.initializePlayer(
                     budgetBytes = budgetBytes,
                     allocator = allocator
                 ).also { currentBitrateAwareLoadControl = it }
+            // TG-START: dedicated LoadControl for Telegram loopback sources
+            // (conservative buffer for 1GB devices; re-apply on upstream merge)
             } else if (url.safeHost() == "127.0.0.1") {
                 effectiveBackBufferDurationMs = 2_000
                 currentBitrateAwareLoadControl = null
@@ -545,6 +550,7 @@ internal fun PlayerRuntimeController.initializePlayer(
                     .setPrioritizeTimeOverSizeThresholds(true)
                     .setBackBuffer(2_000, /* retainBackBufferFromKeyframe = */ true)
                     .build()
+            // TG-END
             } else if (MemoryBudget.isLowRamTier) {
                 // Byte cap is the device heap budget, not a flat number: a flat 48MB is 5s
                 // of an 80 Mbps remux, so the cap fired before minBufferMs and playback ran
@@ -854,10 +860,7 @@ internal fun PlayerRuntimeController.initializePlayer(
                 context = context,
                 subtitleDelayUsProvider = subtitleDelayUs::get,
                 audioDelayUsProvider = audioDelayUs::get,
-                shouldNormalizeCuePositionProvider = {
-                    val selectedAddonSubtitle = _uiState.value.selectedAddonSubtitle
-                    selectedAddonSubtitle != null && PlayerSubtitleUtils.mimeTypeFromUrl(selectedAddonSubtitle.url) == MimeTypes.TEXT_VTT
-                },
+                shouldNormalizeCuePositionProvider = { true },
                 shouldStripSdhProvider = {
                     currentPlayerSettingsForReport.subtitleStyle.stripSdh
                 },
@@ -930,7 +933,7 @@ internal fun PlayerRuntimeController.initializePlayer(
                         ),
                         stripDvRpu = stripDvRpuEnabled,
                         stripHdr10PlusSei = stripHdr10PlusSei
-                    )
+                    ).withNuvioMp4Extractor()
 
             setLoadingStatus(
                 phase = "building_player",
@@ -1004,7 +1007,7 @@ internal fun PlayerRuntimeController.initializePlayer(
                 try {
                     currentMediaSession?.release()
                     if (canAdvertiseSession()) {
-                        currentMediaSession = MediaSession.Builder(context, this).build()
+                        currentMediaSession = MediaSession.Builder(context, SafeMediaSessionPlayer(this)).build()
                     }
                     updateMediaSessionMetadata()
                 } catch (e: Exception) {

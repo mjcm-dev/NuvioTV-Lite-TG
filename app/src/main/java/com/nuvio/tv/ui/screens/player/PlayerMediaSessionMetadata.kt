@@ -77,9 +77,12 @@ internal fun PlayerRuntimeController.updateMediaSessionMetadata() {
                     .setMediaMetadata(metadata)
                     .build()
                 player.replaceMediaItem(player.currentMediaItemIndex, updated)
+            // TG-START: defer instead of clearing when no MediaItem yet (TG progressive
+            // sources build the player before the source exists; re-apply on upstream merge)
             } else {
                 Log.d(PlayerRuntimeController.TAG, "MediaSession metadata deferred: player has no MediaItem yet")
             }
+            // TG-END
             // No current MediaItem yet (e.g. player just built, source not set) means there is
             // nothing to attach metadata to. Setting a placeholder item was tried here and can
             // never work: a MediaItem carrying only metadata has no localConfiguration, and

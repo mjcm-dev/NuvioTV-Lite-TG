@@ -580,6 +580,8 @@
     <string name="buffer_auto_limit_active">Auto-scaled Safe Limit: %d MB</string>
     <string name="advanced_nuvio_focus_scroll">Nuvio Focus Scrolling</string>
     <string name="advanced_nuvio_focus_scroll_subtitle">Use Nuvio\'s custom global focus scroll animation and positioning.</string>
+    <string name="advanced_rgb565">RGB565 image decoding</string>
+    <string name="advanced_rgb565_subtitle">Use lower-memory 16-bit color for eligible opaque images. Changing this restarts the app.</string>
     <string name="advanced_memory_only_vertical_scroll">Memory-only Vertical Scrolling</string>
     <string name="advanced_memory_only_vertical_scroll_subtitle">Skip disk and network image requests while vertically scrolling home rows.</string>
     <string name="advanced_compose_highlighter">Compose Highlighter</string>
@@ -587,9 +589,11 @@
     <string name="advanced_clear_cw_cache">Clear Continue Watching Cache</string>
     <string name="advanced_clear_cw_cache_subtitle">Remove cached thumbnails, titles, and enrichment data for Continue Watching</string>
     <string name="advanced_clear_cw_cache_done">Cache cleared</string>
+    <!-- TG-START: free storage keeping TG session (re-apply on upstream merge) -->
     <string name="advanced_clear_safe_storage">Free App Storage (Keep Account)</string>
     <string name="advanced_clear_safe_storage_subtitle">Clears temporary cache and Telegram download files while keeping addons, account, and Telegram linked session</string>
     <string name="advanced_clear_safe_storage_done">Storage freed</string>
+    <!-- TG-END -->
     <string name="advanced_remember_last_profile">Remember Last Profile</string>
     <string name="advanced_remember_last_profile_subtitle">Remember last selected profile at startup</string>
     <string name="advanced_confirm_exit">Full exit on close</string>
@@ -621,6 +625,7 @@
     <string name="sub_opacity">Opacity</string>
     <string name="action_none">None</string>
     <string name="action_back">Back</string>
+    <!-- TG-START: Telegram strings (re-apply on upstream merge) -->
     <string name="action_continue">Continue</string>
 
     <!-- Telegram -->
@@ -629,6 +634,12 @@
     <string name="telegram_status_initializing">Connecting to Telegram…</string>
     <string name="telegram_error_unavailable">TDLib is not available on this device</string>
     <string name="telegram_error_missing_credentials">Telegram credentials are missing in this build</string>
+    <!-- TG-START: per-device API credentials, option B (re-apply on upstream merge) -->
+    <string name="telegram_credentials_prompt">Enter this device\'s Telegram API credentials (free at my.telegram.org). They stay on this device only.</string>
+    <string name="telegram_credentials_api_id_placeholder">API ID (numbers)</string>
+    <string name="telegram_credentials_api_hash_placeholder">API hash (32 characters)</string>
+    <string name="telegram_credentials_invalid">Check the values: API ID must be numeric and API hash 32 hex characters.</string>
+    <!-- TG-END -->
     <string name="telegram_error_generic">Error: %1$s</string>
     <string name="telegram_qr_content_description">QR code</string>
     <string name="telegram_qr_instructions">Open Telegram on your phone: Settings → Devices → Link Device, and scan this code</string>
@@ -642,8 +653,17 @@
     <string name="telegram_password_prompt">Enter your two-step verification password</string>
     <string name="telegram_password_placeholder">Password</string>
     <string name="telegram_search_group_title">Telegram search</string>
-    <string name="telegram_search_channel_context_title">Use channel title for series match</string>
-    <string name="telegram_search_channel_context_subtitle">When filenames do not include the series title, match episodes using channel title + season/episode markers.</string>
+    <string name="telegram_search_advanced_movies_title">Advanced search for movies</string>
+    <string name="telegram_search_i18n_movies_title">Internationalization</string>
+    <string name="telegram_search_i18n_movies_subtitle">Also search with the original title, alternative titles and acronyms. Off: interface title only.</string>
+    <string name="telegram_search_discard_series_title">Discard series</string>
+    <string name="telegram_search_discard_series_subtitle">Reject files with season/episode markers in movie searches.</string>
+    <string name="telegram_search_advanced_series_title">Advanced search for series</string>
+    <string name="telegram_search_i18n_series_title">Internationalization</string>
+    <string name="telegram_search_i18n_series_subtitle">Also search with the original title, alternative titles, acronyms and localized season/episode patterns. Off: interface title and numeric patterns only.</string>
+    <string name="telegram_search_channel_context_title">Channel/Folder with episodes only</string>
+    <string name="telegram_search_channel_context_subtitle">When filenames do not include the series title, match episodes using channel or folder title + season/episode markers.</string>
+    <!-- TG-END -->
     <string name="action_close">Close</string>
 
     <string name="supporters_contributors_title">Support Nuvio</string>
@@ -833,6 +853,8 @@
     <string name="dv7_libdovi_mode_3_sub" translatable="false">Convert Profile 5 (DV5) streams to Profile 8.1. Same conversion the Convert DV5 to DV8.1 toggle uses.</string>
     <string name="dv7_libdovi_mode_4_title" translatable="false">Mode 4 — 8.4 (static)</string>
     <string name="dv7_libdovi_mode_4_sub" translatable="false">Convert to static profile 8.4.</string>
+    <string name="audio_mpv_hi10p_gnext_sw_title">Hi10P G-NEXT SW fallback (MPV-only)</string>
+    <string name="audio_mpv_hi10p_gnext_sw_subtitle">Use G-NEXT software decoding when stream details identify H.264 Hi10P. Off by default; enable only if Hi10P playback freezes or fails.</string>
     <string name="audio_mpv_hwdec_title">Hardware Decoding (MPV-only)</string>
     <string name="audio_mpv_hwdec_dialog_subtitle">Select how libmpv should use hardware decoders.</string>
     <string name="audio_mpv_hwdec_legacy_direct_copy">Legacy (direct -&gt; copy)</string>
@@ -969,6 +991,8 @@
     <string name="layout_section_content_desc">Control what appears on home and search.</string>
     <string name="layout_collapse_sidebar">Collapse Sidebar</string>
     <string name="layout_collapse_sidebar_sub">Hide sidebar by default; show when focused.</string>
+    <string name="layout_hide_floating_pill">Hide Floating Pill</string>
+    <string name="layout_hide_floating_pill_sub">Hide the floating navigation indicator on the home screen.</string>
     <string name="layout_modern_sidebar">Modern Sidebar</string>
     <string name="layout_modern_sidebar_sub">Enable floating sidebar navigation.</string>
     <string name="layout_modern_sidebar_blur">Modern Sidebar Blur</string>
@@ -1882,6 +1906,7 @@
     <string name="search_start_subtitle_no_discover">Discover is disabled. Enter at least 2 characters</string>
     <string name="search_recent_title">Recent searches</string>
     <string name="search_recent_clear">Clear history</string>
+    <string name="cd_remove_recent_search">Remove %1$s from recent searches</string>
     <string name="search_voice_no_speech">No speech detected. Try again.</string>
     <string name="search_voice_mic_permission">Microphone permission is required for voice search.</string>
     <string name="search_voice_failed">Voice recognition failed. Try again.</string>

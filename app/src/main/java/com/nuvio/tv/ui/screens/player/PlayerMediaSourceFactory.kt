@@ -14,7 +14,9 @@ import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.dash.DashMediaSource
 import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+// TG-START: ProgressiveMediaSource for Telegram loopback routing (re-apply on upstream merge)
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
+// TG-END
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
 import androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy
@@ -111,6 +113,7 @@ internal class PlayerMediaSourceFactory(private val context: Context) {
 
         val mediaItem = mediaItemBuilder.build()
 
+        // TG-START: Telegram loopback routing (re-apply on upstream merge)
         // Telegram loopback: direct file reading via TelegramDataSource (Nagram pattern).
         // Bypasses HTTP entirely — reads from TDLib's temp file via RandomAccessFile.
         // Uses ProgressiveMediaSource.Factory directly (not DefaultMediaSourceFactory) to avoid
@@ -129,6 +132,7 @@ internal class PlayerMediaSourceFactory(private val context: Context) {
             val mediaSource = progressiveFactory.createMediaSource(tgMediaItem)
             return wrapAudioDelay(mediaSource = mediaSource, audioDelayUsProvider = audioDelayUsProvider)
         }
+        // TG-END
 
         val mp4SessionMode = !useParallelConnections && !isHls && !isDash &&
             resolvedMimeType == MimeTypes.VIDEO_MP4
@@ -195,7 +199,8 @@ internal class PlayerMediaSourceFactory(private val context: Context) {
             progressiveUpstreamFactory
         }
 
-        val extractorsFactory = customExtractorsFactory ?: DefaultExtractorsFactory()
+        val baseExtractorsFactory = customExtractorsFactory ?: DefaultExtractorsFactory()
+        val extractorsFactory = baseExtractorsFactory.withNuvioMp4Extractor()
         val defaultFactory = DefaultMediaSourceFactory(progressiveFactory, extractorsFactory).apply {
             setLoadErrorHandlingPolicy(loadErrorHandlingPolicy)
             customSubtitleParserFactory?.let { parserFactory ->
@@ -273,7 +278,9 @@ internal class PlayerMediaSourceFactory(private val context: Context) {
     }
 
     companion object {
+        // TG-START: log tag used by TG_DIRECT routing (re-apply on upstream merge)
         private const val TAG = "PlayerMediaSrc"
+        // TG-END
         private const val MIME_VIDEO_QUICK_TIME = "video/quicktime"
         private const val MP4_SESSION_CHUNK_BYTES = 8L * 1024L * 1024L
         private const val ENABLE_VOD_CACHE = true

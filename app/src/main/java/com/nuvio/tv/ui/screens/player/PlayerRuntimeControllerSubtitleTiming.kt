@@ -15,8 +15,7 @@ import okhttp3.Request
 import java.util.concurrent.TimeUnit
 
 private val subtitleAutoSyncHttpClient: OkHttpClient by lazy {
-    OkHttpClient.Builder()
-        .dns(IPv4FirstDns())
+    PlayerPlaybackNetworking.trustAllPlaybackHttpClient.newBuilder()
         // Sidecar + auto-sync both use this client; keep timeouts generous for flaky hosts.
         .connectTimeout(12_000, TimeUnit.MILLISECONDS)
         .readTimeout(15_000, TimeUnit.MILLISECONDS)
@@ -152,7 +151,11 @@ private fun PlayerRuntimeController.maybeLoadSubtitleAutoSyncCues(force: Boolean
         }
 
         try {
-            val rawSubtitleBody = downloadSubtitleBody(selectedSubtitle.url, selectedSubtitle.lang)
+            val rawSubtitleBody = downloadSubtitleBody(
+                selectedSubtitle.url,
+                selectedSubtitle.lang,
+                selectedSubtitle.headers
+            )
             val parsedCues = PlayerSubtitleCueParser.parseFromText(
                 rawText = rawSubtitleBody,
                 sourceUrl = selectedSubtitle.url
@@ -200,12 +203,16 @@ private fun PlayerRuntimeController.maybeLoadSubtitleAutoSyncCues(force: Boolean
  * subtitle URL shares the same host as the active stream. Forwarding debrid/CDN headers to
  * OpenSubtitles-style hosts is a common cause of intermittent HTTP 4xx / empty bodies.
  */
-internal suspend fun PlayerRuntimeController.downloadSubtitleBody(url: String, languageHint: String? = null): String =
+internal suspend fun PlayerRuntimeController.downloadSubtitleBody(
+    url: String,
+    languageHint: String? = null,
+    headers: Map<String, String>? = null
+): String =
     withContext(Dispatchers.IO) {
         var lastError: Exception? = null
         repeat(SUBTITLE_DOWNLOAD_MAX_ATTEMPTS) { attempt ->
             try {
-                return@withContext executeSubtitleDownload(url, languageHint)
+                return@withContext executeSubtitleDownload(url, languageHint, headers)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -218,33 +225,73 @@ internal suspend fun PlayerRuntimeController.downloadSubtitleBody(url: String, l
         throw lastError ?: IllegalStateException("Subtitle download failed")
     }
 
-private fun PlayerRuntimeController.executeSubtitleDownload(url: String, languageHint: String? = null): String {
+/**
+ * The same-domain branch forwards Cookie and Authorization, so a shared registry suffix is not
+ * close enough: comparing the last two labels makes every `*.co.uk` host a sibling and would hand
+ * a debrid token to an unrelated site. Only the host itself and its subdomains qualify.
+ */
+private fun isSameOrSubdomain(host1: String?, host2: String?): Boolean {
+    if (host1.isNullOrBlank() || host2.isNullOrBlank()) return false
+    val a = host1.lowercase()
+    val b = host2.lowercase()
+    return a == b || a.endsWith(".$b") || b.endsWith(".$a")
+}
+
+private fun PlayerRuntimeController.executeSubtitleDownload(
+    url: String,
+    languageHint: String? = null,
+    customHeaders: Map<String, String>? = null
+): String {
     val requestBuilder = Request.Builder().url(url)
     val subtitleHost = runCatching { android.net.Uri.parse(url).host }.getOrNull()
     val streamHost = runCatching { android.net.Uri.parse(currentStreamUrl).host }.getOrNull()
-    val sameHost = !subtitleHost.isNullOrBlank() &&
-        subtitleHost.equals(streamHost, ignoreCase = true)
+    val sameDomain = isSameOrSubdomain(subtitleHost, streamHost)
 
-    if (sameHost) {
+    val explicitHeaders = customHeaders
+        ?: streamSubtitles.firstOrNull { it.url == url }?.headers
+        ?: _uiState.value.addonSubtitles.firstOrNull { it.url == url }?.headers
+        ?: _uiState.value.selectedAddonSubtitle?.takeIf { it.url == url }?.headers
+
+    val excludedHopByHop = setOf("range", "host", "connection", "transfer-encoding")
+
+    if (sameDomain) {
+        // Same domain/subdomain: forward all safe stream headers (including cookies/auth)
         currentHeaders
-            .filterKeys { key ->
-                // Never forward hop-by-hop / range / host — they break foreign or CDN edges.
-                !key.equals("Range", ignoreCase = true) &&
-                    !key.equals("Host", ignoreCase = true) &&
-                    !key.equals("Connection", ignoreCase = true) &&
-                    !key.equals("Transfer-Encoding", ignoreCase = true)
+            .filterKeys { it.lowercase() !in excludedHopByHop }
+            .forEach { (key, value) ->
+                requestBuilder.header(key, value)
             }
+    } else {
+        // Cross-domain: forward Referer, Origin, and safe metadata headers to prevent CDN 403 Forbidden,
+        // but omit Authorization and Cookie to avoid foreign auth rejection (e.g. OpenSubtitles).
+        val crossDomainExcluded = excludedHopByHop + setOf("authorization", "cookie", "proxy-authorization")
+        currentHeaders
+            .filterKeys { it.lowercase() !in crossDomainExcluded }
             .forEach { (key, value) ->
                 requestBuilder.header(key, value)
             }
     }
 
-    requestBuilder.header(
-        "User-Agent",
+    // Apply explicit subtitle headers (overriding stream headers)
+    explicitHeaders?.forEach { (key, value) ->
+        if (key.lowercase() !in excludedHopByHop) {
+            requestBuilder.header(key, value)
+        }
+    }
+
+    // User-Agent: prefer stream User-Agent if available, otherwise standard browser UA
+    val streamUa = currentHeaders.entries.firstOrNull { it.key.equals("User-Agent", ignoreCase = true) }?.value
+    val defaultUa = streamUa ?: (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
             "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     )
-    requestBuilder.header("Accept", "text/plain, text/vtt, application/x-subrip, */*")
+    if (requestBuilder.build().header("User-Agent") == null) {
+        requestBuilder.header("User-Agent", defaultUa)
+    }
+
+    if (requestBuilder.build().header("Accept") == null) {
+        requestBuilder.header("Accept", "text/plain, text/vtt, application/x-subrip, */*")
+    }
 
     subtitleAutoSyncHttpClient.newCall(requestBuilder.build()).execute().use { response ->
         if (!response.isSuccessful) {

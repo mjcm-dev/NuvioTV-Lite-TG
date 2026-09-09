@@ -1,3 +1,4 @@
+// TG-ONLY-FILE: Telegram module — keep whole file on upstream merge
 package com.nuvio.tv.core.telegram
 
 import org.junit.Assert.assertEquals
@@ -92,4 +93,102 @@ class TelegramMediaParserTest {
         assertNull(parsed.season)
         assertNull(parsed.episode)
     }
+
+    // TG-START: subtitle-head variants (re-apply on upstream merge)
+    @Test
+    fun `subtitle head keeps X-Files style heads`() {
+        assertEquals(
+            "Expediente X",
+            TelegramMediaParser.subtitleHeadVariant("Expediente X: Enfréntate al futuro")
+        )
+        assertEquals(
+            "The X Files",
+            TelegramMediaParser.subtitleHeadVariant("The X Files: Fight the Future")
+        )
+    }
+
+    @Test
+    fun `subtitle head keeps hyphenated words intact`() {
+        assertEquals(
+            "Spider-Man",
+            TelegramMediaParser.subtitleHeadVariant("Spider-Man: No Way Home")
+        )
+        assertEquals(
+            "Star Wars",
+            TelegramMediaParser.subtitleHeadVariant("Star Wars: Episode IV - A New Hope")
+        )
+    }
+
+    @Test
+    fun `subtitle head rejects missing or single-token heads`() {
+        assertNull(TelegramMediaParser.subtitleHeadVariant("Heat"))
+        assertNull(TelegramMediaParser.subtitleHeadVariant("Avatar: Fire and Ash"))
+        assertNull(TelegramMediaParser.subtitleHeadVariant("  "))
+    }
+    // TG-END
+
+    // TG-START: subtitle-tail variants (re-apply on upstream merge)
+    @Test
+    fun `subtitle tail keeps subtitle part`() {
+        assertEquals(
+            "Creer es la clave",
+            TelegramMediaParser.subtitleTailVariant("Expediente X: Creer es la clave")
+        )
+        assertEquals(
+            "I Want to Believe",
+            TelegramMediaParser.subtitleTailVariant("The X-Files: I Want to Believe")
+        )
+    }
+
+    @Test
+    fun `subtitle tail rejects missing or single-token tails`() {
+        assertNull(TelegramMediaParser.subtitleTailVariant("Heat"))
+        assertNull(TelegramMediaParser.subtitleTailVariant("Avatar: Fire"))
+    }
+    // TG-END
+
+    // TG-START: lone digits kept as sequel numbers (re-apply on upstream merge)
+    @Test
+    fun `keeps sequel number in clean title`() {
+        val parsed = TelegramMediaParser.parse("El diablo viste de Prada 2 (2026).mkv")
+
+        assertEquals("El diablo viste de Prada 2", parsed.cleanTitle)
+        assertNull(parsed.season)
+        assertNull(parsed.episode)
+    }
+    // TG-END
+
+    // TG-START: non-localized series patterns (re-apply on upstream merge)
+    @Test
+    fun `non-localized keeps numeric patterns`() {
+        val parsed = TelegramMediaParser.parse("Perdidos S06E03 1080p.mkv", localized = false)
+
+        assertEquals(6, parsed.season)
+        assertEquals(3, parsed.episode)
+    }
+
+    @Test
+    fun `non-localized keeps NxNN and bare E patterns`() {
+        val xPattern = TelegramMediaParser.parse("Serie 6x03.mkv", localized = false)
+        assertEquals(6, xPattern.season)
+        assertEquals(3, xPattern.episode)
+
+        val ePattern = TelegramMediaParser.parse("Serie E05.mkv", localized = false)
+        assertEquals(5, ePattern.episode)
+    }
+
+    @Test
+    fun `non-localized drops word-based patterns`() {
+        val temporada = TelegramMediaParser.parse(
+            "Cuéntame cómo pasó Temporada 24 Capítulo 3.mp4",
+            localized = false
+        )
+        assertNull(temporada.season)
+        assertNull(temporada.episode)
+
+        val compact = TelegramMediaParser.parse("Mujeres.T1.E05.mp4", localized = false)
+        assertNull(compact.season)
+        assertEquals(5, compact.episode)
+    }
+    // TG-END
 }
