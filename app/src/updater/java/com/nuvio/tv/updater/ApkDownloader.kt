@@ -7,6 +7,12 @@ import java.io.FileOutputStream
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/** Thrown when the bytes written do not match the declared Content-Length. */
+class IncompleteDownloadException(
+    val downloadedBytes: Long,
+    val totalBytes: Long
+) : IllegalStateException("Incomplete download: $downloadedBytes/$totalBytes bytes")
+
 @Singleton
 class ApkDownloader @Inject constructor(
     private val okHttpClient: OkHttpClient
@@ -46,6 +52,14 @@ class ApkDownloader @Inject constructor(
                         }
                         output.flush()
                     }
+                }
+
+                // Fork: a silent truncation used to surface later as a bogus
+                // "signature mismatch" (or a missing file). Fail here instead.
+                val written = destinationFile.length()
+                if (total != null && written != total) {
+                    destinationFile.delete()
+                    throw IncompleteDownloadException(written, total)
                 }
             }
 
