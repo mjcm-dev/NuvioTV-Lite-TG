@@ -185,9 +185,11 @@ android {
             // Kept well above every previously side-loaded CI build (max 1046) because
             // Android's installer requires a higher versionCode to update, not just a
             // higher versionName. Bump by 1 per release.
-            versionCode = 10013
+            // TG-START: own-fork release identity (re-apply on upstream merge)
+            versionCode = 10014
             versionName = "1.4.5"
-            versionNameSuffix = "-lite"
+            versionNameSuffix = "-lite-tg"
+            // TG-END
             buildConfigField("boolean", "FEATURE_IN_APP_UPDATES_ENABLED", "true")
             buildConfigField("boolean", "FEATURE_EXTERNAL_TRAILERS_ENABLED", "false")
             buildConfigField("boolean", "FEATURE_EXTERNAL_PLAYBACK_KEEP_ALIVE_ENABLED", "false")

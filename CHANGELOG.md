@@ -1,5 +1,12 @@
 # Changelog — NuvioTV Lite Edition
 
+## v1.4.5-lite-tg.1 — 2026-09-08
+
+- First Telegram-integrated release of this fork (upstream `v1.4.5-lite` + TG module).
+- Links the personal Telegram account (QR + per-device API keys, option B: no keys compiled in), Telegram movie/series search with ES/LatAm ranking, direct TDLib playback, per-type i18n toggles, series discard in movies, subtitle head/tail and acronym variants.
+- Installs as `com.nuvio.tv.lite`, fresh app alongside debug builds: relink Telegram (keys + QR) and Nuvio account once per device; Nuvio data resyncs from the account.
+- OTA from this build onward comes from this repo (BETA channel) instead of upstream.
+
 All notable changes to the Lite Edition are documented here. Versions use the
 `X.Y.Z-lite` scheme; every release ships torrent-free per-ABI APKs and receives
 in-app OTA updates.
