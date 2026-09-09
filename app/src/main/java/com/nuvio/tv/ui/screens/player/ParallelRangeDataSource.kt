@@ -1065,7 +1065,7 @@ internal class ParallelRangeDataSource(
         var totalRead = 0
         var consecutiveZeroReads = 0
         try {
-            val byteBufferReader = if (isEffectiveNative && ds is androidx.media3.common.ByteBufferDataReader) {
+            var byteBufferReader = if (isEffectiveNative && ds is androidx.media3.common.ByteBufferDataReader) {
                 ds
             } else {
                 null
@@ -1078,11 +1078,15 @@ internal class ParallelRangeDataSource(
                 val maxRead = minOf(buffer.byteBuffer.capacity() - totalRead, READ_BUFFER_SIZE)
                 if (maxRead <= 0) break
 
-                val read = if (byteBufferReader != null) {
+                val reader = byteBufferReader
+                val read = if (reader != null) {
                     try {
                         buffer.byteBuffer.position(totalRead)
-                        byteBufferReader.read(buffer.byteBuffer, maxRead)
+                        reader.read(buffer.byteBuffer, maxRead)
                     } catch (_: Exception) {
+                        // A reader that can't do off-heap reads fails on every call, so drop it
+                        // for the rest of the chunk instead of paying an exception per read.
+                        byteBufferReader = null
                         val r = ds.read(tempArray, 0, maxRead)
                         if (r != C.RESULT_END_OF_INPUT) {
                             buffer.byteBuffer.position(totalRead)
