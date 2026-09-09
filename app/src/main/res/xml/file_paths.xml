@@ -6,4 +6,8 @@
     <external-cache-path
         name="external_cache"
         path="." />
+    <!-- Fork: update APKs live under filesDir (never auto-purged like cacheDir). -->
+    <files-path
+        name="apk_updates"
+        path="updates/" />
 </paths>

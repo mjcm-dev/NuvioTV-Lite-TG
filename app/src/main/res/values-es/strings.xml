@@ -1108,4 +1108,8 @@
     <string name="advanced_clear_safe_storage_subtitle">Limpia la caché temporal y los archivos de descarga de Telegram, manteniendo addons, cuenta y sesión vinculada de Telegram</string>
     <string name="advanced_clear_safe_storage_done">Almacenamiento liberado</string>
     <!-- TG-END -->
+    <!-- Fork: updater hardening messages. -->
+    <string name="update_error_incomplete">Descarga incompleta, reintenta con conexión estable</string>
+    <string name="update_error_no_space">Sin espacio libre suficiente para la actualización</string>
+    <!-- Fork end. -->
 </resources>

@@ -43,6 +43,11 @@ class UpdateViewModel @Inject constructor(
     private val apkDownloader: ApkDownloader
 ) : ViewModel() {
 
+    private companion object {
+        // Fork: headroom above the asset size for the download + install steps.
+        const val HEADROOM_BYTES = 50L * 1024L * 1024L
+    }
+
     private val _uiState = MutableStateFlow(UpdateUiState())
     val uiState: StateFlow<UpdateUiState> = _uiState.asStateFlow()
     private var updateCheckJob: Job? = null
@@ -232,8 +237,31 @@ class UpdateViewModel @Inject constructor(
                 )
             }
 
+            // Fork: filesDir (never auto-purged) instead of cacheDir — on nearly-full
+            // devices the system trimmed cacheDir/updates between download and install,
+            // surfacing as "missing file" or a bogus signature error.
+            val updatesDir = File(context.filesDir, "updates")
+            // One-off hygiene: drop leftovers from the old cacheDir location.
+            runCatching { File(context.cacheDir, "updates").deleteRecursively() }
+            // Fail fast when the asset size is known and free space cannot hold it.
+            val requiredBytes = (update.assetSizeBytes ?: -1L).let { size ->
+                if (size > 0) size + HEADROOM_BYTES else -1L
+            }
+            // Note: query usableSpace on filesDir (exists); updatesDir may not yet.
+            if (requiredBytes > 0 && context.filesDir.usableSpace.let { it >= 0 && it < requiredBytes }) {
+                _uiState.update {
+                    it.copy(
+                        isDownloading = false,
+                        downloadProgress = null,
+                        errorMessage = context.getString(R.string.update_error_no_space),
+                        showBanner = true
+                    )
+                }
+                return@launch
+            }
+
             val safeName = update.assetName.replace(Regex("[^a-zA-Z0-9._-]"), "_")
-            val destination = File(File(context.cacheDir, "updates"), safeName)
+            val destination = File(updatesDir, safeName)
             val result = withContext(Dispatchers.IO) {
                 apkDownloader.download(update.assetUrl, destination) { downloaded, total ->
                     val progress = if (total != null && total > 0) {
@@ -258,12 +286,19 @@ class UpdateViewModel @Inject constructor(
                     installUpdateOrRequestPermission()
                 }
                 .onFailure { error ->
+                    // Fork: truncated downloads get a clear message instead of a
+                    // misleading signature error two steps later.
+                    val message = if (error is IncompleteDownloadException) {
+                        context.getString(R.string.update_error_incomplete)
+                    } else {
+                        error.message ?: context.getString(R.string.update_error_download_failed)
+                    }
                     _uiState.update {
                         it.copy(
                             isDownloading = false,
                             downloadProgress = null,
                             downloadedApkPath = null,
-                            errorMessage = error.message ?: context.getString(R.string.update_error_download_failed),
+                            errorMessage = message,
                             showBanner = true
                         )
                     }
