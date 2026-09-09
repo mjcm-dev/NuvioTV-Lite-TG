@@ -96,13 +96,14 @@ fun TelegramAuthScreen(
     val backFocusRequester = remember { FocusRequester() }
     val readyActionRequester = remember { FocusRequester() }
     // States with no actionable control of their own: park focus on Back.
+    // NOTE: WaitingQrCode is deliberately excluded — yanking focus to the bottom
+    // scrolled the QR out of view on D-pad boxes.
     LaunchedEffect(authState) {
         when (authState) {
             is TelegramAuthState.Idle,
             is TelegramAuthState.Initializing,
             is TelegramAuthState.Unavailable,
             is TelegramAuthState.Error,
-            is TelegramAuthState.WaitingQrCode,
             is TelegramAuthState.WaitingPhoneNumber -> backFocusRequester.requestFocus()
             is TelegramAuthState.Ready -> readyActionRequester.requestFocus()
             else -> Unit
@@ -166,8 +167,11 @@ fun TelegramAuthScreen(
                 )
             }
 
+            // TG-START: search settings only once linked (re-apply on upstream merge)
+            // Showing the "Búsqueda TG" hierarchy before the account is linked pushes
+            // the QR and the key fields out of a 1080p viewport on D-pad boxes.
+            if (authState is TelegramAuthState.Ready) {
             Spacer(Modifier.height(20.dp))
-            // TG-START: "Búsqueda TG" hierarchy (re-apply on upstream merge)
             SettingsGroupCard(
                 modifier = Modifier.fillMaxWidth(),
                 title = stringResource(R.string.telegram_search_group_title)
@@ -212,6 +216,7 @@ fun TelegramAuthScreen(
                         viewModel.setAllowChannelContextSeriesMatch(!allowChannelContextSeriesMatch)
                     }
                 )
+            }
             }
             // TG-END
 
