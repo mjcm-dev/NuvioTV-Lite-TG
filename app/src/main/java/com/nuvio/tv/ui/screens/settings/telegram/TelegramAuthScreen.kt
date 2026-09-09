@@ -8,6 +8,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -34,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.SolidColor
@@ -87,16 +90,42 @@ fun TelegramAuthScreen(
         }
     }
 
+    // TG-START: TV focus + scroll (Mi Box D-pad: content overflows without scroll,
+    // nothing requests focus on entry; re-apply on upstream merge)
+    val scrollState = rememberScrollState()
+    val backFocusRequester = remember { FocusRequester() }
+    val readyActionRequester = remember { FocusRequester() }
+    // States with no actionable control of their own: park focus on Back.
+    // NOTE: WaitingQrCode is deliberately excluded — yanking focus to the bottom
+    // scrolled the QR out of view on D-pad boxes.
+    LaunchedEffect(authState) {
+        when (authState) {
+            is TelegramAuthState.Idle,
+            is TelegramAuthState.Initializing,
+            is TelegramAuthState.Unavailable,
+            is TelegramAuthState.Error,
+            is TelegramAuthState.WaitingPhoneNumber -> backFocusRequester.requestFocus()
+            is TelegramAuthState.Ready -> readyActionRequester.requestFocus()
+            else -> Unit
+        }
+    }
+    // TG-END
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
-        contentAlignment = Alignment.Center
+        // TG-START: top-align so overflowing content scrolls instead of clipping
+        contentAlignment = Alignment.TopCenter
+        // TG-END
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 64.dp),
+                // TG-START: scroll keeps every field reachable on 1080p boxes
+                .verticalScroll(scrollState)
+                // TG-END
+                .padding(horizontal = 64.dp, vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
@@ -127,7 +156,10 @@ fun TelegramAuthScreen(
 
                 is TelegramAuthState.Ready -> ReadyPanel(
                     firstName = state.firstName,
-                    onUnbind = { viewModel.unbind() }
+                    onUnbind = { viewModel.unbind() },
+                    // TG-START: TV focus + scroll (re-apply on upstream merge)
+                    focusRequester = readyActionRequester
+                    // TG-END
                 )
 
                 is TelegramAuthState.Error -> StatusText(
@@ -135,8 +167,11 @@ fun TelegramAuthScreen(
                 )
             }
 
+            // TG-START: search settings only once linked (re-apply on upstream merge)
+            // Showing the "Búsqueda TG" hierarchy before the account is linked pushes
+            // the QR and the key fields out of a 1080p viewport on D-pad boxes.
+            if (authState is TelegramAuthState.Ready) {
             Spacer(Modifier.height(20.dp))
-            // TG-START: "Búsqueda TG" hierarchy (re-apply on upstream merge)
             SettingsGroupCard(
                 modifier = Modifier.fillMaxWidth(),
                 title = stringResource(R.string.telegram_search_group_title)
@@ -182,10 +217,16 @@ fun TelegramAuthScreen(
                     }
                 )
             }
+            }
             // TG-END
 
             Spacer(Modifier.height(24.dp))
-            OutlinedButton(onClick = onBackPress) {
+            OutlinedButton(
+                onClick = onBackPress,
+                // TG-START: TV focus + scroll (re-apply on upstream merge)
+                modifier = Modifier.focusRequester(backFocusRequester)
+                // TG-END
+            ) {
                 Text(stringResource(R.string.action_back))
             }
         }
@@ -243,7 +284,13 @@ private fun QrPanel(link: String, onBackPress: () -> Unit) {
 }
 
 @Composable
-private fun ReadyPanel(firstName: String, onUnbind: () -> Unit) {
+private fun ReadyPanel(
+    firstName: String,
+    onUnbind: () -> Unit,
+    // TG-START: TV focus + scroll (re-apply on upstream merge)
+    focusRequester: FocusRequester? = null
+    // TG-END
+) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = if (firstName.isNotBlank()) {
@@ -255,7 +302,12 @@ private fun ReadyPanel(firstName: String, onUnbind: () -> Unit) {
             color = MaterialTheme.colorScheme.onBackground
         )
         Spacer(Modifier.height(16.dp))
-        Button(onClick = onUnbind) {
+        Button(
+            onClick = onUnbind,
+            // TG-START: TV focus + scroll (re-apply on upstream merge)
+            modifier = if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier
+            // TG-END
+        ) {
             Text(stringResource(R.string.telegram_unbind))
         }
     }
@@ -267,6 +319,11 @@ private fun CredentialsForm(viewModel: TelegramAuthViewModel) {
     var apiId by remember { mutableStateOf("") }
     var apiHash by remember { mutableStateOf("") }
     val showError by viewModel.credentialsError.collectAsState()
+    // TG-START: TV focus + scroll (Mi Box D-pad; re-apply on upstream merge)
+    val apiIdFieldRequester = remember { FocusRequester() }
+    val apiHashFieldRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) { apiIdFieldRequester.requestFocus() }
+    // TG-END
 
     LaunchedEffect(apiId, apiHash) {
         if (showError) viewModel.clearCredentialsError()
@@ -285,8 +342,11 @@ private fun CredentialsForm(viewModel: TelegramAuthViewModel) {
             placeholder = stringResource(R.string.telegram_credentials_api_id_placeholder),
             keyboardType = KeyboardType.Number,
             imeAction = ImeAction.Next,
-            onImeAction = { },
-            modifier = Modifier.widthIn(max = 380.dp)
+            onImeAction = { apiHashFieldRequester.requestFocus() },
+            // TG-START: TV focus + scroll (re-apply on upstream merge)
+            modifier = Modifier.widthIn(max = 380.dp),
+            fieldFocusRequester = apiIdFieldRequester
+            // TG-END
         )
         Spacer(Modifier.height(12.dp))
         TgInputField(
@@ -296,7 +356,10 @@ private fun CredentialsForm(viewModel: TelegramAuthViewModel) {
             keyboardType = KeyboardType.Text,
             imeAction = ImeAction.Done,
             onImeAction = { viewModel.saveCredentials(apiId, apiHash) },
-            modifier = Modifier.widthIn(max = 380.dp)
+            // TG-START: TV focus + scroll (re-apply on upstream merge)
+            modifier = Modifier.widthIn(max = 380.dp),
+            fieldFocusRequester = apiHashFieldRequester
+            // TG-END
         )
         if (showError) {
             Spacer(Modifier.height(8.dp))
@@ -368,7 +431,10 @@ private fun CodeForm(codeLength: Int, viewModel: TelegramAuthViewModel) {
             keyboardType = KeyboardType.Number,
             imeAction = ImeAction.Done,
             onImeAction = { viewModel.submitCode(code) },
-            modifier = Modifier.widthIn(max = 380.dp).focusRequester(focusRequester)
+            // TG-START: D-pad text entry (re-apply on upstream merge)
+            modifier = Modifier.widthIn(max = 380.dp),
+            fieldFocusRequester = focusRequester
+            // TG-END
         )
         Spacer(Modifier.height(12.dp))
         Button(
@@ -402,7 +468,10 @@ private fun PasswordForm(viewModel: TelegramAuthViewModel) {
             isPassword = true,
             imeAction = ImeAction.Done,
             onImeAction = { viewModel.submitPassword(password) },
-            modifier = Modifier.widthIn(max = 380.dp).focusRequester(focusRequester)
+            // TG-START: D-pad text entry (re-apply on upstream merge)
+            modifier = Modifier.widthIn(max = 380.dp),
+            fieldFocusRequester = focusRequester
+            // TG-END
         )
         Spacer(Modifier.height(12.dp))
         Button(
@@ -424,13 +493,34 @@ private fun TgInputField(
     imeAction: ImeAction,
     onImeAction: () -> Unit,
     modifier: Modifier = Modifier,
-    isPassword: Boolean = false
+    isPassword: Boolean = false,
+    // TG-START: D-pad text entry (Mi Box: Surface consumed focus, IME never opened;
+    // re-apply on upstream merge)
+    fieldFocusRequester: FocusRequester? = null
+    // TG-END
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
     var isEditing by remember { mutableStateOf(false) }
+    // TG-START: D-pad text entry (re-apply on upstream merge)
+    val innerRequester = remember { FocusRequester() }
+    val editorRequester = fieldFocusRequester ?: innerRequester
+    var editorFocused by remember { mutableStateOf(false) }
+    LaunchedEffect(editorFocused) {
+        if (editorFocused) {
+            keyboardController?.show()
+        } else {
+            keyboardController?.hide()
+        }
+    }
+    // TG-END
 
     Surface(
-        onClick = { isEditing = true },
+        // TG-START: D-pad text entry (re-apply on upstream merge)
+        onClick = {
+            isEditing = true
+            editorRequester.requestFocus()
+        },
+        // TG-END
         modifier = modifier,
         colors = ClickableSurfaceDefaults.colors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
@@ -444,6 +534,10 @@ private fun TgInputField(
             onValueChange = onValueChange,
             modifier = Modifier
                 .fillMaxWidth()
+                // TG-START: D-pad text entry (re-apply on upstream merge)
+                .focusRequester(editorRequester)
+                .onFocusChanged { editorFocused = it.isFocused }
+                // TG-END
                 .padding(horizontal = 18.dp, vertical = 14.dp),
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = imeAction),

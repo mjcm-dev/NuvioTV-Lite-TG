@@ -41,7 +41,7 @@ Permitir al usuario vincular y desvincular su cuenta personal de Telegram para h
 - **TG-AUTH-5 — Sin sesión no hay búsqueda.** Sin sesión válida, cualquier búsqueda TG devuelve lista vacía de forma silenciosa, sin error ni crash.
 - **TG-AUTH-6 — Desvincular borra todo.** Desvincular debe cerrar sesión en Telegram y borrar todo rastro local (sesión + ficheros descargados), volviendo al estado inicial “no vinculada”.
 - **TG-AUTH-7 — Errores terminales no reintentan en bucle.** Un fallo terminal de inicialización no debe reintentarse solo; requiere reentrar a la pantalla, desvincular o reiniciar la app.
-- **TG-AUTH-8 — Ajustes de búsqueda siempre visibles.** La sección “Búsqueda TG” debe mostrarse haya o no sesión, porque afecta a búsquedas futuras. Estructura:
+- **TG-AUTH-8 — Ajustes de búsqueda solo con cuenta vinculada.** La sección “Búsqueda TG” se muestra únicamente en estado vinculada: mostrarla antes empuja el QR y los campos de claves fuera de un viewport 1080p con mando. Estructura (visible solo vinculada):
   - **Búsqueda avanzada para películas** (cabecera)
     - **Internacionalización** (interruptor, por defecto ACTIVADO)
     - **Descartar series** (interruptor, por defecto ACTIVADO): rechaza archivos con marcadores de temporada/episodio en búsquedas de películas (p. ej. el episodio `S06E03` cuando se busca la película del mismo título).
