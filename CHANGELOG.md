@@ -1,5 +1,9 @@
 # Changelog — NuvioTV Lite Edition
 
+## v1.4.5-lite-tg.2 — 2026-09-09
+
+- Hardened OTA download path for near-full devices: APKs download to `filesDir` (never auto-purged), integrity is verified against `Content-Length`, free space is pre-checked, and errors distinguish truncated downloads from signature problems.
+
 ## v1.4.5-lite-tg.1 — 2026-09-08
 
 - First Telegram-integrated release of this fork (upstream `v1.4.5-lite` + TG module).
