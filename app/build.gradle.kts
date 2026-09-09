@@ -186,7 +186,7 @@ android {
             // Android's installer requires a higher versionCode to update, not just a
             // higher versionName. Bump by 1 per release.
             // TG-START: own-fork release identity (re-apply on upstream merge)
-            versionCode = 10015
+            versionCode = 10016
             versionName = "1.4.5"
             versionNameSuffix = "-lite-tg"
             // TG-END
