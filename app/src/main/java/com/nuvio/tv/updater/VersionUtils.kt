@@ -76,9 +76,28 @@ internal object VersionUtils {
 
     fun isPrerelease(raw: String?): Boolean = parse(raw)?.prerelease?.isNotEmpty() == true
 
+    // TG-START: trailing -tg.N release iteration as a build number (re-apply on upstream merge)
+    private val tgIterationSuffix = Regex("""-tg\.(\d+)$""")
+
+    /** Trailing `-tg.N` iteration of a normalized TG version, or null when absent. */
+    fun tgIterationOf(normalized: String): Long? =
+        tgIterationSuffix.find(normalized)?.groupValues?.get(1)?.toLongOrNull()
+    // TG-END
+
     fun isRemoteNewer(remote: String?, local: String?): Boolean {
         val remoteVersion = parse(remote) ?: return false
         val localVersion = parse(local) ?: return false
+        // TG-START: same TG base compares by -tg.N iteration, never re-offer own release (re-apply on upstream merge)
+        val remoteNormalized = normalize(remote)
+        val localNormalized = normalize(local)
+        val remoteBase = remoteNormalized.replace(tgIterationSuffix, "-tg")
+        val localBase = localNormalized.replace(tgIterationSuffix, "-tg")
+        if (remoteBase.contains("-tg") && remoteBase == localBase) {
+            val remoteIteration = tgIterationOf(remoteNormalized) ?: 0L
+            val localIteration = tgIterationOf(localNormalized) ?: 0L
+            return remoteIteration > localIteration
+        }
+        // TG-END
         return remoteVersion > localVersion
     }
 }
