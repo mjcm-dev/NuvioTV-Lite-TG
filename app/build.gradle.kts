@@ -188,7 +188,12 @@ android {
             // TG-START: own-fork release identity (re-apply on upstream merge)
             versionCode = 10016
             versionName = "1.4.5"
-            versionNameSuffix = "-lite-tg"
+            // TG iteration suffix: the trailing .N must be bumped with every
+            // -tg.N release (same commit as versionCode), otherwise the OTA
+            // comparator cannot tell an installed build from its own tag and
+            // re-offers it as an update. Installed versionName carries the N,
+            // release tags carry it too (v1.4.5-lite-tg.N).
+            versionNameSuffix = "-lite-tg.3"
             // TG-END
             buildConfigField("boolean", "FEATURE_IN_APP_UPDATES_ENABLED", "true")
             buildConfigField("boolean", "FEATURE_EXTERNAL_TRAILERS_ENABLED", "false")
