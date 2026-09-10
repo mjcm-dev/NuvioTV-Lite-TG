@@ -1,5 +1,9 @@
 # Changelog — NuvioTV Lite Edition
 
+## v1.4.5-lite-tg.4 — 2026-09-10
+
+- OTA no longer re-offers the installed build as an update: releases on the same TG base compare by `-tg.N` iteration, and the installed `versionName` now carries the iteration (e.g. `1.4.5-lite-tg.4`) so it matches its own release tag.
+
 ## v1.4.5-lite-tg.3 — 2026-09-09
 
 - TV-usable Telegram auth screen: scrollable layout, D-pad focus order with initial focus per state, working on-screen keyboard entry on strict D-pad boxes (Mi Box 3), and search settings shown only once the account is linked so the QR stays visible.
