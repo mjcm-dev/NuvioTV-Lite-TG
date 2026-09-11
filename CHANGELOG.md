@@ -5,6 +5,10 @@
 - TG port of upstream `v1.4.6-lite` (upstream `0.9.1-beta` sync: search focus/back-stack fixes, VC-1 failover, splash gating, TLS pinning for first-party APIs, theme/gradient work, translation updates).
 - Same TG module as `v1.4.5-lite-tg.4` (TDLib on-device, `TelegramDataSource`, `-tg.N` OTA iteration compare). Installs as `com.nuvio.tv.lite`, `versionCode` 10018.
 
+## v1.4.5-lite-tg.4 — 2026-09-10
+
+- OTA no longer re-offers the installed build as an update: releases on the same TG base compare by `-tg.N` iteration, and the installed `versionName` now carries the iteration (e.g. `1.4.5-lite-tg.4`) so it matches its own release tag.
+
 ## v1.4.5-lite-tg.3 — 2026-09-09
 
 - TV-usable Telegram auth screen: scrollable layout, D-pad focus order with initial focus per state, working on-screen keyboard entry on strict D-pad boxes (Mi Box 3), and search settings shown only once the account is linked so the QR stays visible.
