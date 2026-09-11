@@ -4,6 +4,7 @@ package com.nuvio.tv.ui.screens.stream
 
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import androidx.activity.compose.BackHandler
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
@@ -106,6 +107,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.res.stringResource
 import com.nuvio.tv.R
 import android.util.Log
+import dev.chrisbanes.haze.HazeInputScale
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
 
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -137,6 +142,9 @@ fun StreamScreen(
         initialValue = StreamBadgeSettings()
     )
     val scope = rememberCoroutineScope()
+    val streamHazeState = remember {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) HazeState() else null
+    }
 
     LaunchedEffect(restoreSourceSelection) {
         if (restoreSourceSelection) {
@@ -372,16 +380,22 @@ fun StreamScreen(
         }
     }
 
+    val showOverlay = uiState.showDirectAutoPlayOverlay || uiState.externalPlayerOverlayVisible
+
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
         // Full screen backdrop
         StreamBackdrop(
             backdrop = uiState.backdrop ?: uiState.poster,
-            isLoading = uiState.isLoading
+            isLoading = uiState.isLoading,
+            modifier = if (streamHazeState != null && uiState.autoPlayDecided && !showOverlay) {
+                Modifier.hazeSource(state = streamHazeState)
+            } else {
+                Modifier
+            }
         )
 
-        val showOverlay = uiState.showDirectAutoPlayOverlay || uiState.externalPlayerOverlayVisible
         if (!uiState.autoPlayDecided) {
             // Don't render overlay or stream list until ViewModel decides
             // whether direct autoplay is active — prevents single-frame flash.
@@ -465,6 +479,7 @@ fun StreamScreen(
                         }
                     },
                     onRetry = { viewModel.onEvent(StreamScreenEvent.OnRetry) },
+                    hazeState = streamHazeState,
                     modifier = Modifier
                         .weight(0.6f)
                         .fillMaxHeight()
@@ -533,7 +548,8 @@ fun StreamScreen(
 @Composable
 private fun StreamBackdrop(
     backdrop: String?,
-    isLoading: Boolean
+    isLoading: Boolean,
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val backgroundColor = NuvioTheme.colors.Background
@@ -551,7 +567,7 @@ private fun StreamBackdrop(
         label = "backdrop_image_alpha"
     )
 
-    Box(modifier = Modifier
+    Box(modifier = modifier
         .fillMaxSize()
         .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
     ) {
@@ -737,6 +753,7 @@ private fun RightStreamSection(
     shouldRestoreFocusedStream: Boolean,
     onRestoreFocusedStreamHandled: () -> Unit,
     onRetry: () -> Unit,
+    hazeState: HazeState?,
     modifier: Modifier = Modifier
 ) {
     val isRtl = androidx.compose.ui.platform.LocalLayoutDirection.current == androidx.compose.ui.unit.LayoutDirection.Rtl
@@ -869,7 +886,24 @@ private fun RightStreamSection(
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(RoundedCornerShape(NuvioTheme.radii.xl))
-                    .background(NuvioTheme.colors.BackgroundCard.copy(alpha = 0.5f)),
+                    .then(
+                        if (hazeState != null) {
+                            Modifier.hazeEffect(state = hazeState) {
+                                blurRadius = NuvioTheme.effects.blurPanel
+                                noiseFactor = 0.04f
+                                inputScale = HazeInputScale.Fixed(0.66f)
+                            }
+                        } else {
+                            Modifier
+                        }
+                    )
+                    .background(
+                        if (hazeState != null) {
+                            Color(0xFF1C1C1E).copy(alpha = 0.65f)
+                        } else {
+                            NuvioTheme.colors.BackgroundCard.copy(alpha = 0.5f)
+                        }
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 when {
@@ -1188,6 +1222,8 @@ private fun StreamCard(
     }
     // TG-END
     val hasBadges = stream.badges.isNotEmpty() || (showFileSizeBadges && stream.behaviorHints?.videoSize != null) || reserveBadgeSpace
+    val cardShape = RoundedCornerShape(NuvioTheme.radii.md)
+    val hasGradientFocusRing = NuvioTheme.palette.focusRingGradient.size > 1
 
     var isFocused by remember { mutableStateOf(false) }
 
@@ -1230,7 +1266,17 @@ private fun StreamCard(
             containerColor = NuvioTheme.colors.BackgroundElevated,
             focusedContainerColor = NuvioTheme.colors.BackgroundElevated
         ),
-        shape = CardDefaults.shape(shape = RoundedCornerShape(NuvioTheme.radii.md)),
+        shape = CardDefaults.shape(shape = cardShape),
+        border = if (hasGradientFocusRing) {
+            CardDefaults.border(
+                focusedBorder = Border(
+                    border = NuvioTheme.focusRing.border(NuvioTheme.spacing.xxs),
+                    shape = cardShape
+                )
+            )
+        } else {
+            CardDefaults.border()
+        },
         scale = CardDefaults.scale(focusedScale = 1f)
     ) {
         Row(

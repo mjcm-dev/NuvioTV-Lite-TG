@@ -1173,9 +1173,9 @@ private fun EpisodeOptionsOverlayStyleDialog(
 ) {
     val options = listOf(
         SettingsPickerOption(
-            EpisodeOptionsOverlayStyle.NONE,
-            stringResource(R.string.layout_episode_options_overlay_none),
-            stringResource(R.string.layout_episode_options_overlay_none_desc)
+            EpisodeOptionsOverlayStyle.BLUR,
+            stringResource(R.string.layout_episode_options_overlay_blur),
+            stringResource(R.string.layout_episode_options_overlay_blur_desc)
         ),
         SettingsPickerOption(
             EpisodeOptionsOverlayStyle.ARTWORK,
@@ -1183,9 +1183,9 @@ private fun EpisodeOptionsOverlayStyleDialog(
             stringResource(R.string.layout_episode_options_overlay_artwork_desc)
         ),
         SettingsPickerOption(
-            EpisodeOptionsOverlayStyle.BLUR,
-            stringResource(R.string.layout_episode_options_overlay_blur),
-            stringResource(R.string.layout_episode_options_overlay_blur_desc)
+            EpisodeOptionsOverlayStyle.NONE,
+            stringResource(R.string.layout_episode_options_overlay_none),
+            stringResource(R.string.layout_episode_options_overlay_none_desc)
         )
     )
 
