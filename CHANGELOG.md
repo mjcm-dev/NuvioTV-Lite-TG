@@ -1,5 +1,10 @@
 # Changelog — NuvioTV Lite Edition
 
+## v1.4.6-lite-tg.1 — 2026-09-11
+
+- TG port of upstream `v1.4.6-lite` (upstream `0.9.1-beta` sync: search focus/back-stack fixes, VC-1 failover, splash gating, TLS pinning for first-party APIs, theme/gradient work, translation updates).
+- Same TG module as `v1.4.5-lite-tg.4` (TDLib on-device, `TelegramDataSource`, `-tg.N` OTA iteration compare). Installs as `com.nuvio.tv.lite`, `versionCode` 10018.
+
 ## v1.4.5-lite-tg.3 — 2026-09-09
 
 - TV-usable Telegram auth screen: scrollable layout, D-pad focus order with initial focus per state, working on-screen keyboard entry on strict D-pad boxes (Mi Box 3), and search settings shown only once the account is linked so the QR stays visible.
@@ -24,6 +29,68 @@ Release tags are `v<versionName>` (e.g. `v1.0.0-lite`) and are derived from the
 build itself. The in-app updater compares the release tag against the installed
 `versionName`, so tags must stay version-shaped and releases must be published as
 full releases — the updater ignores prereleases and drafts.
+
+## v1.4.6-lite — 2026-09-09
+
+### Off-heap chunk reads no longer throw once per read
+- Upstream's native-allocation work dropped the `supportsByteBufferRead()` check in favour of a
+  try/catch, but the catch sits inside the per-read loop while the reader is picked once outside
+  it. On a device whose data source can't do off-heap reads that is one exception per read slice,
+  for every chunk of every stream — the fallback path was paying for the attempt over and over.
+  The reader is now dropped on the first failure and the rest of the chunk goes straight to the
+  array path.
+
+### The trailing-moov cache is gone again
+- Upstream reverted the non-faststart MP4 `moov` cache it added in 0.9.0-beta, so the 8 MB
+  low-tier cap this edition put on it in v1.4.5 goes with it. Files with a trailing `moov` start
+  the way they did before the feature landed. Carrying a 400-line extractor upstream deleted was
+  not worth the start-up saving to own alone.
+
+### Cards still draw their scrim without a second render target
+- Upstream moved the poster logo gradient onto an offscreen compositing layer. The gradient is an
+  opaque draw into an empty box, so the pixels are identical either way, and on a grid that layer
+  is one extra render target per visible card. Lite keeps the cached brush it has drawn with
+  since v1.0.0.
+
+### Parallel connections stay clamped to the memory budget
+- The buffer budget now counts the idle buffer pool as well as the in-flight chunks, roughly
+  doubling what parallel downloads are charged against the budget — which is the honest number and
+  leaves less room on a 1–2 GB box. This edition's clamp on connection count and chunk size still
+  applies on top, and the settings screen now estimates the overhead with the same per-tier chunk
+  ceiling the player actually allocates, so the figure shown matches the one used.
+
+### Synced with upstream NuvioTV (0.9.1-beta)
+- [upstream] First-party API traffic now validates TLS instead of trusting any certificate, and
+  the HTTP cache directory is versioned so nothing cached under the old trust-all client is
+  replayed. Addon URLs keep the permissive client. @ieno
+- [upstream] Player memory: chunk buffers are allocated off-heap when native allocation is on,
+  chunk eviction drops the ones behind the playhead sooner, and the debug overlay reports the
+  real off-heap figure with a target-buffer breakdown. @halibiram
+- [upstream] A VC-1 stream that the decoder rejects now shows the actual decoder error and offers
+  a hand-off to the MPV player, rather than being ruled out before playback is attempted.
+  @halibiram
+- [upstream] Selecting an audio track before the first frame no longer flushes the decoder.
+  @halibiram
+- [upstream] Search: Back steps back through the search instead of leaving, focus lands on
+  Discover on the way out, scroll resets when the query changes, catalog paging is tied to the run
+  that started it, and moving down reaches recent searches rather than their remove buttons. @ieno
+- [upstream] A splash screen on startup, gated by where you are actually going, using the current
+  profile's branding. @skoruppa @tapframe
+- [upstream] Themes: custom static colours and a custom member gradient, applied to focus rings and
+  the stream panel, with the home rows, hero carousel and classic collections all respecting it.
+  @tapframe @skoruppa
+- [upstream] Rendering: content cards, the focus gradient and the marquee text do less work per
+  frame, and row focus indices no longer live in a snapshot map that invalidated on every write.
+  @skoruppa
+- [upstream] Focus fixes for the hero on classic and grid home, classic home collections, the
+  sources side panel, and Continue Watching no longer rebuilds when the profile changes. @skoruppa
+- [upstream] New defaults: Libass on, forced subtitles and SDH stripping on, blur behind the
+  episode options overlay, a 10 second autoplay timeout, and last stream link reuse for an hour.
+  @skoruppa
+- [upstream] `.ass` subtitle tracks are hidden in the Post Play window. @skoruppa
+- [upstream] Pure Black / OLED surfaces use an opaque modern menu panel. @skoruppa
+- [upstream] Translations updated for Polish, Russian, Dutch, Vietnamese and Spanish.
+  @skoruppa @zamalatb @blueocean2308 @IberianSoldierPC
 
 ## v1.4.5-lite — 2026-09-04
 
