@@ -230,7 +230,13 @@ class TgDownloadSessionManager @Inject constructor(
 
             // 3. Cursor productivo: solo el lector sostenido lo mueve, con
             // cooldown (los opens especulativos del extractor nunca emiten).
-            ensureCursorFor(s, pos, reason = "wait", isOpenPhase = false)
+            // Si la descarga está parada (ventana completada/cancelada) y pos
+            // no es legible, forzar reposición: la histéresis solo vale cuando
+            // hay datos realmente en camino.
+            val stalled = synchronized(s.lock) {
+                !s.downloadActive && !s.completed && !s.braked
+            }
+            ensureCursorFor(s, pos, reason = if (stalled) "wait-stalled" else "wait", isOpenPhase = false, force = stalled)
 
             val now = System.currentTimeMillis()
             if (now >= deadline) {
@@ -404,12 +410,12 @@ class TgDownloadSessionManager @Inject constructor(
 
     // ── Cursor (único emisor) ─────────────────────────────────────────
 
-    private fun ensureCursorFor(s: Session, pos: Long, reason: String, isOpenPhase: Boolean) {
+    private fun ensureCursorFor(s: Session, pos: Long, reason: String, isOpenPhase: Boolean, force: Boolean = false) {
         val window: TgSeekPolicy.Window
         synchronized(s.lock) {
             val total = s.totalSize
             if (total <= 0L) return
-            if (!TgSeekPolicy.needsReposition(pos, s.cursor)) return
+            if (!force && !TgSeekPolicy.needsReposition(pos, s.cursor)) return
             if (!TgSeekPolicy.mayReposition(
                     isOpenPhase = isOpenPhase,
                     hasCursor = s.cursor != null,
