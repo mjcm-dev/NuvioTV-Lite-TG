@@ -13,11 +13,11 @@ class MemoryBudgetTest {
     fun lowRamBudgetIsCappedByPhysicalCeiling() {
         // A 2GB box with largeHeap: 512MB heap, so the ratio alone would allow 332MB.
         // The 250MB ceiling has to win, otherwise the process gets LMK-killed.
-        assertEquals(250, MemoryBudget.computeBudgetMb(332, 512L, isLowRamTier = true))
+        assertEquals(250, MemoryBudget.computeBudgetMb(332, 512L, isConstrainedTier = true))
         // Heap reserve still wins when it is the tighter of the two.
-        assertEquals(190, MemoryBudget.computeBudgetMb(332, 400L, isLowRamTier = true))
+        assertEquals(190, MemoryBudget.computeBudgetMb(332, 400L, isConstrainedTier = true))
         // High-RAM devices keep the full ratio budget, uncapped.
-        assertEquals(1740, MemoryBudget.computeBudgetMb(1740, 2048L, isLowRamTier = false))
+        assertEquals(1740, MemoryBudget.computeBudgetMb(1740, 2048L, isConstrainedTier = false))
     }
 
     @Test
@@ -25,15 +25,15 @@ class MemoryBudgetTest {
         // Perf mode's 16 x 128MB is ~2.1GB of direct buffers, so low-RAM has to come back in budget.
         assertEquals(
             MemoryBudget.MAX_CONNECTIONS to MemoryBudget.maxChunkMb(50, MemoryBudget.MAX_CONNECTIONS) * 1024,
-            MemoryBudget.clampParallel(16, 128 * 1024, 50, isLowRamTier = true)
+            MemoryBudget.clampParallel(16, 128 * 1024, 50, isConstrainedTier = true)
         )
         // High-RAM keeps the raised ceilings.
         assertEquals(
             16 to 128 * 1024,
-            MemoryBudget.clampParallel(16, 128 * 1024, 50, isLowRamTier = false)
+            MemoryBudget.clampParallel(16, 128 * 1024, 50, isConstrainedTier = false)
         )
         // Sub-MB chunks stay exact; values already in budget pass through.
-        assertEquals(2 to 256, MemoryBudget.clampParallel(2, 256, 50, isLowRamTier = true))
+        assertEquals(2 to 256, MemoryBudget.clampParallel(2, 256, 50, isConstrainedTier = true))
     }
 
     @Test
@@ -43,21 +43,21 @@ class MemoryBudgetTest {
         assertEquals(50, MemoryBudget.totalUsageMb(50, 4, 32, false))
         
         // case 2: parallel enabled
-        // bufferCount(4) = 4 * 2 = 8 (active chunks + empty pool)
-        // overhead = 8 * 32 = 256
-        // total = 50 + 256 = 306
-        assertEquals(306, MemoryBudget.totalUsageMb(50, 4, 32, true))
+        // bufferCount(4) = 4 + 2 = 6
+        // overhead = 6 * 32 = 192
+        // total = 50 + 192 = 242
+        assertEquals(242, MemoryBudget.totalUsageMb(50, 4, 32, true))
     }
 
     @Test
     fun testParallelOverheadMb() {
         // 3 parallel connections with 8 MB chunk size:
-        // bufferCount(3) = 3 * 2 = 6 chunks * 8 MB = 48 MB
-        assertEquals(48, MemoryBudget.parallelOverheadMb(connectionCount = 3, chunkSizeMb = 8))
+        // bufferCount(3) = 3 + 2 = 5 chunks * 8 MB = 40 MB
+        assertEquals(40, MemoryBudget.parallelOverheadMb(connectionCount = 3, chunkSizeMb = 8))
 
         // 4 parallel connections with 8 MB chunks:
-        // bufferCount(4) = 4 * 2 = 8 chunks * 8 MB = 64 MB
-        assertEquals(64, MemoryBudget.parallelOverheadMb(connectionCount = 4, chunkSizeMb = 8))
+        // bufferCount(4) = 4 + 2 = 6 chunks * 8 MB = 48 MB
+        assertEquals(48, MemoryBudget.parallelOverheadMb(connectionCount = 4, chunkSizeMb = 8))
     }
 
     @Test

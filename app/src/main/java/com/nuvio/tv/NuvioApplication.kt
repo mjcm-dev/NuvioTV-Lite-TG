@@ -6,6 +6,7 @@ import android.os.Build
 import android.os.StrictMode
 import coil3.ImageLoader
 import coil3.SingletonImageLoader
+import com.nuvio.tv.core.image.CustomPosterFallbackInterceptor
 import coil3.disk.DiskCache
 import coil3.memory.MemoryCache
 import coil3.gif.GifDecoder
@@ -114,7 +115,8 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
     }
 
     override fun newImageLoader(context: android.content.Context): ImageLoader {
-        val lowMemoryProfile = DeviceMemoryTier.lowMemoryProfile
+        val isLowRam = DeviceMemoryTier.isLowRam
+        val dropsOptionalWork = DeviceMemoryTier.dropsOptionalWork
         val imageOkHttpClient by lazy {
             val imageDispatcher = okhttp3.Dispatcher().apply {
                 maxRequests = 32
@@ -144,9 +146,10 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
 
         return ImageLoader.Builder(this)
             .components {
-                // Lite and low-RAM skip animated-image decoding: an animated GIF/WebP/HEIF
-                // from an arbitrary poster URL retains every frame, dwarfing the poster cache.
-                if (!lowMemoryProfile) {
+                add(CustomPosterFallbackInterceptor())
+                // An animated GIF/WebP/HEIF from an arbitrary poster URL retains every frame,
+                // dwarfing the poster cache — work this edition drops at any RAM size.
+                if (!dropsOptionalWork) {
                     if (Build.VERSION.SDK_INT >= 28) {
                         add(AnimatedImageDecoder.Factory())
                     } else {
@@ -155,10 +158,9 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
                 }
                 add(SvgDecoder.Factory())
                 add(
-                    // Lite and low-RAM skip stale-while-revalidate: no background revalidation
-                    // churn and no process-lifetime URL maps. Posters refresh
-                    // on normal cache expiry via Coil's default CacheControl strategy.
-                    if (lowMemoryProfile) {
+                    // No background revalidation churn and no process-lifetime URL maps.
+                    // Posters refresh on normal cache expiry via Coil's default strategy.
+                    if (dropsOptionalWork) {
                         coil3.network.okhttp.OkHttpNetworkFetcherFactory(
                             callFactory = { imageOkHttpClient },
                         )
@@ -177,9 +179,9 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
             }
             .memoryCache {
                 val totalRamMb = DeviceMemoryTier.totalRamMb
-                // Cache % scales with RAM; isLowRam (<=2560MB) absorbs the former <=2048 tier.
+                // Cache % scales with RAM; the 8% floor is the 1-1.5GB class only.
                 val cachePercent = when {
-                    lowMemoryProfile -> 0.08
+                    isLowRam -> 0.08
                     totalRamMb <= 3072 -> 0.20
                     else -> 0.25
                 }
@@ -199,8 +201,8 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
             .allowHardware(false)
             // Upstream's toggle trades poster quality against bytes; where the bytes are not
             // optional the setting is forced on, and its row is hidden to match.
-            .allowRgb565(lowMemoryProfile || imagePerformancePreferences.rgb565Enabled)
-            .bitmapFactoryMaxParallelism(if (lowMemoryProfile) 2 else 4)
+            .allowRgb565(dropsOptionalWork || imagePerformancePreferences.rgb565Enabled)
+            .bitmapFactoryMaxParallelism(if (isLowRam) 2 else 4)
             .build()
     }
 }

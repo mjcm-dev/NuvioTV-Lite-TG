@@ -53,7 +53,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
+import com.nuvio.tv.ui.util.directedFor
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.nuvio.tv.R
@@ -255,6 +257,12 @@ fun ContentCard(
             if (revalidationKey > 0) {
                 builder.placeholderMemoryCacheKey("${imageUrl}_${requestWidthPx}x${requestHeightPx}_v${revalidationKey - 1}")
             }
+            val fallbackUrl = item.rawPosterUrl
+            if (!fallbackUrl.isNullOrBlank() && fallbackUrl != imageUrl) {
+                builder.memoryCacheKeyExtras(
+                    mapOf(com.nuvio.tv.core.image.CustomPosterFallbackInterceptor.FALLBACK_URL_KEY to fallbackUrl)
+                )
+            }
             builder.build()
         }
         val logoRequestHeightPx = remember(density) {
@@ -274,7 +282,8 @@ fun ContentCard(
         val showExpandedLogo = !item.logo.isNullOrBlank() && !logoLoadFailed
 
         val bgCardColor = NuvioTheme.colors.BackgroundCard
-        val backgroundPainter = remember(bgCardColor) { androidx.compose.ui.graphics.painter.ColorPainter(bgCardColor) }
+        val backgroundPainter = rememberPosterPlaceholderPainter(cardShape, bgCardColor)
+        val loadingPainter = rememberPosterPlaceholderPainter(cardShape, bgCardColor, breathing = true)
 
         Card(
             onClick = {
@@ -393,7 +402,7 @@ fun ContentCard(
                         model = imageModel,
                         contentDescription = item.name,
                         modifier = Modifier.fillMaxSize(),
-                        placeholder = backgroundPainter,
+                        placeholder = loadingPainter,
                         error = backgroundPainter,
                         fallback = backgroundPainter,
                         contentScale = ContentScale.Crop
@@ -591,7 +600,7 @@ fun ContentCard(
                         Spacer(modifier = Modifier.height(NuvioTheme.spacing.xs))
                         Text(
                             text = description,
-                            style = MaterialTheme.typography.bodySmall,
+                            style = MaterialTheme.typography.bodySmall.directedFor(description),
                             color = NuvioTheme.colors.TextPrimary,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
