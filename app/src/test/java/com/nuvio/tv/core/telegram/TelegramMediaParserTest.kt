@@ -191,4 +191,23 @@ class TelegramMediaParserTest {
         assertEquals(5, compact.episode)
     }
     // TG-END
+
+    // TG-START: de-abbreviated titles (re-apply on upstream merge)
+    @Test
+    fun `deabbreviate merges dotted abbreviations`() {
+        assertEquals("Muertos SL", TelegramMediaParser.deabbreviateTitle("Muertos S.L."))
+    }
+
+    @Test
+    fun `deabbreviate drops trailing dots`() {
+        assertEquals("Muertos SL", TelegramMediaParser.deabbreviateTitle("Muertos SL."))
+    }
+
+    @Test
+    fun `deabbreviate returns null when unchanged`() {
+        assertNull(TelegramMediaParser.deabbreviateTitle("Muertos SL"))
+        assertNull(TelegramMediaParser.deabbreviateTitle("MIB"))
+        assertNull(TelegramMediaParser.deabbreviateTitle("  "))
+    }
+    // TG-END
 }

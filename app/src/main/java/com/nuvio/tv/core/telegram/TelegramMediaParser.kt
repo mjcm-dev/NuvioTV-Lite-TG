@@ -220,4 +220,20 @@ object TelegramMediaParser {
         if (matchTokens(tail).size < 2) return null
         return tail
     }
+
+    // TG-START: de-abbreviated titles (re-apply on upstream merge)
+    /**
+     * Merges dotted abbreviations ("Muertos S.L." -> "Muertos SL") and drops
+     * trailing dots ("Muertos SL." -> "Muertos SL"). Dotted forms never match
+     * dotless release filenames server-side, and the lone letters also die in
+     * the token length filter, so no normalized variant can save them.
+     */
+    fun deabbreviateTitle(title: String): String? {
+        val merged = title.replace(Regex("""(?<=\p{L})\.(?=\p{L})"""), "")
+        val cleaned = merged.trim().trimEnd('.', ' ')
+            .replace(Regex("""\s+"""), " ")
+        if (cleaned.isEmpty() || cleaned.equals(title.trim(), ignoreCase = true)) return null
+        return cleaned
+    }
+    // TG-END
 }
