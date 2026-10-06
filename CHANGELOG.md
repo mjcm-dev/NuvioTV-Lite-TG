@@ -1,5 +1,9 @@
 # Changelog — NuvioTV Lite Edition
 
+## v1.4.9-lite-tg.2 — 2026-09-18
+
+- TG search: de-abbreviated candidate titles (`Muertos S.L.` → `Muertos SL`, trailing dots dropped) so dotted series abbreviations match dotless release filenames (PR#24). Installs as `com.nuvio.tv.lite`, `versionCode` 10025.
+
 ## v1.4.9-lite-tg.1 — 2026-09-17
 
 - TG port of upstream `v1.4.9-lite` (upstream `0.9.4-beta` sync: movie skip segments — end credits/post-credits detection, subtitle long-press off, subtitle credential hygiene on reload, MPV episode-switch progress fix, stream-list recomposition perf + pagination, ffmpeg downmix native, Matroska/dvmkv updates, localizations).
