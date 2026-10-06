@@ -1,6 +1,7 @@
 package com.nuvio.tv.ui.components
 
 import com.nuvio.tv.ui.theme.NuvioTheme
+import com.nuvio.tv.ui.util.directedFor
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.ui.draw.clip
@@ -53,6 +54,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextDirection
 import com.nuvio.tv.R
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Border
@@ -290,15 +292,16 @@ fun CatalogRowSection(
             Column(verticalArrangement = Arrangement.spacedBy(NuvioTheme.spacing.xs)) {
                 Text(
                     text = catalogTitle.ifBlank { " " },
-                    style = MaterialTheme.typography.headlineMedium,
+                    style = MaterialTheme.typography.headlineMedium.directedFor(catalogTitle),
                     color = if (catalogTitle.isBlank()) Color.Transparent else NuvioTheme.colors.TextPrimary,
                     maxLines = 3,
                     overflow = TextOverflow.Clip
                 )
                 if (showAddonName) {
+                    val addonText = if (catalogTitle.isBlank()) " " else stringResource(R.string.catalog_from_addon, catalogRow.addonName)
                     Text(
-                        text = if (catalogTitle.isBlank()) " " else stringResource(R.string.catalog_from_addon, catalogRow.addonName),
-                        style = MaterialTheme.typography.labelMedium,
+                        text = addonText,
+                        style = MaterialTheme.typography.labelMedium.directedFor(addonText),
                         color = if (catalogTitle.isBlank()) Color.Transparent else NuvioTheme.colors.TextTertiary
                     )
                 }

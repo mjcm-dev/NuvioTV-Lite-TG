@@ -1,5 +1,10 @@
 # Changelog — NuvioTV Lite Edition
 
+## v2.1.0-lite-tg.1 — 2026-10-06
+
+- TG port of upstream `v2.1.0-lite` (2.0 restart: Nuvio Engine P2P kept OFF in this fork — `FEATURE_TORRENT_ENABLED=false` — upstream `1.1.0-beta` sync, VOD cache rework, rail-grouped settings with TELEGRAM under SERVICES, bidi-aware stream titles, shuffle episodes, localizations).
+- TG blocks re-applied: windowed single-cursor streaming, TG ordering over upstream pagination, resume-prefix stream titles, de-abbreviated search, TG cache screen. Installs as `com.nuvio.tv.lite`, `versionCode` 10026.
+
 ## v1.4.9-lite-tg.2 — 2026-09-18
 
 - TG search: de-abbreviated candidate titles (`Muertos S.L.` → `Muertos SL`, trailing dots dropped) so dotted series abbreviations match dotless release filenames (PR#24). Installs as `com.nuvio.tv.lite`, `versionCode` 10025.
@@ -60,10 +65,151 @@ All notable changes to the Lite Edition are documented here. Versions use the
 in-app OTA updates. Releases of this fork append `-tg.N`
 (e.g. `v1.4.5-lite-tg.1`) and are offered on the BETA update channel.
 
-Release tags are `v<versionName>` (e.g. `v1.0.0-lite`) and are derived from the
+Release tags are `v<versionName>` (e.g. `v2.0.0-lite`) and are derived from the
 build itself. The in-app updater compares the release tag against the installed
-`versionName`, so tags must stay version-shaped and releases must be published as
-full releases — the updater ignores prereleases and drafts.
+`versionName`, so tags must stay version-shaped and every new version must be higher
+than the last one shipped. Stable releases are published as full releases; betas
+(`X.Y.Z-beta.N-lite`) are published as prereleases and only reach the Beta update
+channel.
+
+Lite numbering restarted at 2.0.0 after 1.4.10; it is independent of upstream's version.
+
+## v2.1.0-lite — 2026-09-29
+
+**P2P is back:** Lite now streams torrents on upstream's new Nuvio Engine. Turn it on under
+Settings → Playback → P2P. It runs inside the app instead of as a separate 41MB TorrServer
+process, adds 7–11MB to the download, and nothing of it loads until you use P2P.
+
+### P2P streaming on the Nuvio Engine
+- [upstream] TorrServer is replaced by the Nuvio Engine: torrent streams get a
+  Soft / Balanced / Fast profile, keep a 2 / 5 / 10GB on-device cache for faster replays, and
+  the cache can be cleared from settings. @tapframe
+- Lite ships the engine for the first time. It is 10.5MB on arm64 and 7.2MB on 32-bit ARM,
+  against the 41MB TorrServer binary Lite used to leave out, and its native library loads only
+  when a P2P stream starts.
+
+### Synced with upstream NuvioTV (1.1.0-beta.2)
+- [upstream] Episode shuffle: pick a random episode from a series, keep shuffling across player
+  sessions, and see shuffled shows in Continue Watching. @tapframe
+- [upstream] MDBList ratings on the home hero and Continue Watching, with a sortable provider
+  order, fetched a row at a time; Continue Watching shows episode ratings. @skoruppa
+- [upstream] Settings are regrouped into focused sections with titled cards. @tapframe
+- [upstream] Streams that only carry a YouTube id now play, and YouTube no longer hangs on a
+  timeout or a gated page. @deejay189393
+- [upstream] Simkl is a third More Like This source, custom poster URLs can be turned on per
+  screen, and the landscape clearlogo is a toggle. @skoruppa
+- [upstream] The detail page keeps its place and focus when you come back from a studio,
+  person, collection, trailer or episode, holding Down scrolls it, and each row keeps its
+  scroll position. @halibiram
+- [upstream] Debrid picks the file for the episode you asked for, live TV EPG stays out of the
+  episode list, parallel streams no longer send the user agent twice, and resolution matching
+  checks frame rate first. @tapframe @WhiteGiso @ysosrs123
+- [upstream] A device-local toggle for true black letterbox bars, Fit/Fill only while
+  playback is tunneled, and audio delay of ±60s with press-and-hold. @halibiram @uHleaf
+- [upstream] Source chips shimmer while loading and the spinner is a plain arc, which drops
+  the Lottie library. @tapframe
+- [upstream] Home rows keep their window on the focused card after a refresh, and the hero no
+  longer shows another film for a frame. @Telkaoss
+- [upstream] RTL text direction fixes, and Spanish, Hebrew, Chinese, Slovak and Polish
+  translations updated. @haveAnIssue @IberianSoldierPC @blueocean2308 @muichunlim @mmsw91
+
+### Upstream's new work kept off the hot path
+- Episode shuffle sits between the home state and the screen. Until a show has shuffle on,
+  home state now passes straight through, instead of every update and every playback progress
+  save re-grouping the whole watch history on the main thread.
+- The detail rows upstream now anchors (cast, trailers, More Like This, collections, studios,
+  comments, episodes) read their scroll position during composition, so each whole row
+  recomposed on every D-pad step. They now read it only when the row's items change.
+- Home and collection row titles, cast names and hero credits cache their text direction
+  instead of re-scanning each string on every recomposition.
+- Upstream's deeper parallel prefetch in performance mode has a floor of twice the connection
+  count, which goes past the parallel-chunk ceiling on a 2GB box. Constrained devices keep the
+  previous depth; the ceiling itself did not move.
+- Cached catalogue rows only read the per-screen poster settings when a custom poster pattern
+  is set.
+
+### Loading posters no longer vanish into the background
+- A poster still loading shows a faint outline in the card's shape that breathes until its image
+  arrives. With pure black surfaces the card fill is the page colour, so a loading card used to be
+  invisible. Covers the classic and grid cards, the Modern home cards and Continue Watching.
+- The breathing is one shared clock that runs only while a loading poster is on screen, redraws
+  just those cards about 30 times a second, and stops on its own once they have loaded, so a
+  settled home screen draws no frames. A poster that failed keeps a still outline instead.
+
+## v2.0.0-lite — 2026-09-23
+
+**Choose your updates:** go to Settings → About → Update channel. **Stable** (the default) gets
+tested releases only; **Beta** also gets early builds that may contain bugs, starting with the
+next Lite beta.
+
+### Version 2.0.0
+- Lite moves to a clean 2.0.0 numbering. Installed 1.4.x builds see it as a normal update.
+
+### Synced with upstream NuvioTV (1.1.0-beta.1)
+- [upstream] MDBList accounts: sign in from the tracking settings page by device code, then sync
+  watched history, playback progress and scrobbles, and browse your MDBList watchlist and static
+  lists in the Library. Ratings requests are batched and reused. @tapframe
+- [upstream] Custom poster URL patterns (RPDB-style, including btttr) in Layout settings, set from
+  the TV or a phone via a QR page. Custom posters fall back to the addon's own art when they fail
+  to load, and cover home rows, Continue Watching, collections and the Library. @skoruppa
+- [upstream] The VOD disk cache no longer needs the custom buffer engine, reads are buffered
+  instead of 184 bytes at a time, cache writes move off the read path, and the cache is cleared
+  after playback. Buffer defaults, native memory tiers and the back-buffer share were retuned, and
+  the forced MP4 chunk session is gone in favour of an extractor moov fix. @Ramon @halibiram
+- [upstream] The detail page no longer jumps when you come back from a studio, network, cast
+  member, Similar or Collection, the next-to-watch season is kept after the last episode, and
+  closing extra player controls with Back returns focus to Play. @halibiram
+- [upstream] The home hero shows the focused row's version of a title and no longer flashes a
+  different film after a refresh. @Telkaoss
+- [upstream] Simkl history marks, episode runtimes and lagging fetches match mobile. @Matt
+- [upstream] RTL navigation fixes in the Library and on focus buttons; the TMDB release-date
+  override is removed; Greek, Vietnamese and Polish strings updated. @haveAnIssue @skoruppa
+  @nosvasedis @blueocean2308
+
+### Upstream's new work kept inside this edition's limits
+- The buffer ceiling that keeps a 2GB box from being killed mid-playback still applies under
+  upstream's new playback floor, and the Dolby Vision conversion budget is now sized off that
+  capped budget.
+- Catalogue rows are still served from this edition's short in-memory cache. Custom poster URLs
+  are applied when a row is handed out rather than stored with it, so changing the pattern shows
+  up straight away without refetching every row.
+- Continue Watching and Upcoming on the Classic and Grid home layouts no longer rebuild their
+  poster list on every recomposition once a custom poster pattern is set.
+- The MDBList ratings cache upstream introduced is capped at 512 titles instead of growing for the
+  whole session, as the previous per-title cache already was.
+
+### Resource sizing follows the device; dropped work stays dropped
+- The poster cache share and the decode, catalogue and stream-search fan-out were sized for a
+  1GB stick on every device this edition ran on. They now follow the device, so a 2GB box — the
+  common Android TV class — no longer loads its home screen and searches streams at the pace
+  written for a TV stick, and the cut that governs them moved from 2.5GB to 1.6GB.
+- What this edition skips, it still skips at any RAM size: animated poster decoding, background
+  poster revalidation, and resolving every post-play recommendation up front while the video is
+  still playing. Those cost work rather than memory, so having RAM spare is no reason to start
+  doing them.
+- The buffer and parallel-chunk ceilings did not move: they are what keeps a 2GB box from being
+  killed mid-playback, so they still apply at and below that class.
+
+## v1.4.10-lite — 2026-09-19
+
+### Synced with upstream NuvioTV (1.0.0)
+- [upstream] HDR letterbox bars are true black again: the player leaves its letterbox transparent
+  so the panel shows black rather than a painted-on dark grey. Amazon devices and the MVP player
+  keep the old opaque backdrop. @halibiram
+- [upstream] Right-to-left titles and descriptions now sit against the correct edge instead of
+  only rendering in the correct order — stream lists, stream cards, content cards, hero
+  descriptions, source filter chips and the search dropdown. Profile PIN entry stays
+  left-to-right under an RTL locale. @haveAnIssue
+- [upstream] Release tooling recognises the `i18n` commit prefix and Vietnamese, and PR builds
+  attach the debug APK for direct download. @tapframe
+
+### Upstream's new text-direction work kept off the recomposition path
+- The alignment upstream added re-reads each string's bidi direction every time a row recomposes,
+  and rebuilds a `TextStyle` with it — on the same list rows this edition already stopped
+  recomposing on focus moves, plus the home content cards, the hero carousel and the source
+  chips, where it ran per card per frame. The direction and the style it produces are now
+  remembered per string, so a focus move or a carousel tick does no bidi scanning and allocates
+  nothing.
 
 ## v1.4.9-lite — 2026-09-17
 

@@ -9,6 +9,7 @@ plugins {
     alias(libs.plugins.sentry.android.gradle)
 }
 
+import com.android.build.gradle.internal.tasks.L8DexDesugarLibTask
 import java.io.File
 import java.util.Properties
 
@@ -122,10 +123,11 @@ android {
 
     defaultConfig {
         applicationId = "com.nuvio.tv"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1060
-        versionName = "0.9.4-beta"
+        versionCode = 1065
+        versionName = "1.1.0-beta.2"
 
         buildConfigField("String", "PARENTAL_GUIDE_API_URL", "\"${localProperties.getProperty("PARENTAL_GUIDE_API_URL", "")}\"")
         buildConfigField("String", "INTRODB_API_URL", "\"${localProperties.getProperty("INTRODB_API_URL", "")}\"")
@@ -138,6 +140,7 @@ android {
         buildConfigField("String", "TRAKT_REDIRECT_URI", "\"${localProperties.getProperty("TRAKT_REDIRECT_URI", "urn:ietf:wg:oauth:2.0:oob")}\"")
         buildConfigField("String", "SIMKL_CLIENT_ID", buildConfigString(resolveProperty(devProperties, localProperties, "SIMKL_CLIENT_ID")))
         buildConfigField("String", "SIMKL_APP_NAME", buildConfigString(resolveProperty(devProperties, localProperties, "SIMKL_APP_NAME", "nuvio")))
+        buildConfigField("String", "MDBLIST_CLIENT_ID", buildConfigString(resolveProperty(devProperties, localProperties, "MDBLIST_CLIENT_ID")))
         buildConfigField("String", "TMDB_API_KEY", "\"${localProperties.getProperty("TMDB_API_KEY", "")}\"")
         buildConfigField("String", "TV_LOGIN_WEB_BASE_URL", "\"${localProperties.getProperty("TV_LOGIN_WEB_BASE_URL", "https://nuvio.tv/tv-login")}\"")
         buildConfigField("String", "DEVICE_LOGIN_WEB_BASE_URL", "\"${localProperties.getProperty("DEVICE_LOGIN_WEB_BASE_URL", "https://nuvio.tv/link")}\"")
@@ -193,7 +196,7 @@ android {
             buildConfigField("boolean", "FEATURE_CUSTOM_SERVER_CONNECTIONS_ENABLED", "false")
         }
         // NuvioTV Lite edition: playstore-lean feature set + native payload cuts
-        // (torrent .so, DoVi native conversion). Reuses the playstore stub sources;
+        // (DoVi native conversion). Reuses the playstore stub sources;
         // low-RAM behaviour is driven by BuildConfig via
         // com.nuvio.tv.core.build.AppFeaturePolicy.
         create("lite") {
@@ -206,21 +209,20 @@ android {
             // Android's installer requires a higher versionCode to update, not just a
             // higher versionName. Bump by 1 per release.
             // TG-START: own-fork release identity (re-apply on upstream merge)
-            versionCode = 10025
-            versionName = "1.4.9"
+            versionCode = 10026
+            versionName = "2.1.0"
             // TG iteration suffix: the trailing .N must be bumped with every
             // -tg.N release (same commit as versionCode), otherwise the OTA
             // comparator cannot tell an installed build from its own tag and
             // re-offers it as an update. Installed versionName carries the N,
-            // release tags carry it too (v1.4.9-lite-tg.N).
-            versionNameSuffix = "-lite-tg.2"
+            // release tags carry it too (v2.1.0-lite-tg.N).
+            versionNameSuffix = "-lite-tg.1"
             // TG-END
             buildConfigField("boolean", "FEATURE_IN_APP_UPDATES_ENABLED", "true")
             buildConfigField("boolean", "FEATURE_EXTERNAL_TRAILERS_ENABLED", "false")
             buildConfigField("boolean", "FEATURE_EXTERNAL_PLAYBACK_KEEP_ALIVE_ENABLED", "false")
             buildConfigField("boolean", "FEATURE_CUSTOM_SERVER_CONNECTIONS_ENABLED", "false")
             buildConfigField("boolean", "FEATURE_LITE_EDITION", "true")
-            buildConfigField("boolean", "FEATURE_TORRENT_ENABLED", "false")
         }
     }
 
@@ -233,17 +235,12 @@ android {
         getByName("lite") {
             java.srcDirs("src/playstore/java", "src/updater/java")
         }
-        // Torrent streaming: the 41MB libtorrserver.so lives in a holder dir referenced only
-        // by full + playstore, so the lite flavor never packages it. (Per-variant packaging
-        // excludes proved unreliable with useLegacyPackaging, so we gate it at the source.)
         // The real in-app updater is shared by full + lite; playstore keeps the no-op stub
         // (Google Play forbids self-updating).
         getByName("full") {
-            jniLibs.srcDir("src/torrentlibs")
             java.srcDir("src/updater/java")
         }
         getByName("playstore") {
-            jniLibs.srcDir("src/torrentlibs")
             java.srcDir("src/updaterstub/java")
         }
     }
@@ -268,7 +265,7 @@ android {
     buildTypes {
         debug {
             signingConfig = signingConfigs.getByName("release")
-            isDebuggable = false
+            isDebuggable = parseBooleanProperty(providers.gradleProperty("debuggable").orNull)
             isMinifyEnabled = false
 
             buildConfigField("boolean", "IS_DEBUG_BUILD", "true")
@@ -412,8 +409,7 @@ android {
                 "lib/*/libavformat.so",
                 "lib/*/libavutil.so",
                 "lib/*/libswscale.so",
-                "lib/*/libswresample.so",
-                "lib/*/libtorrserver.so"
+                "lib/*/libswresample.so"
             )
         }
     }
@@ -427,6 +423,14 @@ androidComponents {
     onVariants(selector().withBuildType("debug")) { variant ->
         val isPlaystore = variant.productFlavors.any { it.second == "playstore" }
         variant.applicationId.set(if (isPlaystore) "com.nuvio.appdebug" else "com.nuviodebug.com")
+    }
+}
+
+afterEvaluate {
+    tasks.withType<L8DexDesugarLibTask>().configureEach {
+        if (name.endsWith("AndroidTest")) {
+            keepRulesConfigurations.add("-keep class j\$.** { *; }")
+        }
     }
 }
 
@@ -530,7 +534,6 @@ dependencies {
     implementation(libs.coil.svg)
     implementation(libs.coil.network.okhttp)
     implementation(libs.coil.network.cache.control)
-    implementation(libs.lottie.compose)
 
     // Navigation
     implementation(libs.navigation.compose)
@@ -575,6 +578,7 @@ dependencies {
         "libs/lib-decoder-mpegh-release.aar"
     ))
     add("fullImplementation", files("libs/lib-decoder-iamf-release.aar"))
+    implementation(files("libs/lib-nuvio-engine-android-0.1.2.aar"))
     if (useLocalFfmpegDecoder) {
         implementation(project(":ffmpeg-decoder-downmix"))
     } else {
@@ -640,6 +644,7 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
     testImplementation("io.mockk:mockk:1.13.12")
+    testImplementation("com.squareup.okhttp3:mockwebserver:5.3.2")
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }

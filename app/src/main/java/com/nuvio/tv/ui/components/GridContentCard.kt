@@ -184,7 +184,8 @@ fun GridContentCard(
             ) {
                 val context = LocalContext.current
                 val bgCardColor = NuvioTheme.colors.BackgroundCard
-                val bgPainter = remember(bgCardColor) { androidx.compose.ui.graphics.painter.ColorPainter(bgCardColor) }
+                val bgPainter = rememberPosterPlaceholderPainter(cardShape, bgCardColor)
+                val loadingPainter = rememberPosterPlaceholderPainter(cardShape, bgCardColor, breathing = true)
                 val revalidationKey = com.nuvio.tv.core.image.rememberImageRevalidationKey(item.poster)
                 val imageModel = remember(item.poster, requestWidthPx, requestHeightPx, revalidationKey) {
                     val builder = ImageRequest.Builder(context)
@@ -194,6 +195,12 @@ fun GridContentCard(
                         .memoryCacheKey("${item.poster}_${requestWidthPx}x${requestHeightPx}_v$revalidationKey")
                     if (revalidationKey > 0) {
                         builder.placeholderMemoryCacheKey("${item.poster}_${requestWidthPx}x${requestHeightPx}_v${revalidationKey - 1}")
+                    }
+                    val fallbackUrl = item.rawPosterUrl
+                    if (!fallbackUrl.isNullOrBlank() && fallbackUrl != item.poster) {
+                        builder.memoryCacheKeyExtras(
+                            mapOf(com.nuvio.tv.core.image.CustomPosterFallbackInterceptor.FALLBACK_URL_KEY to fallbackUrl)
+                        )
                     }
                     builder.build()
                 }
@@ -205,7 +212,7 @@ fun GridContentCard(
                         contentDescription = item.name,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,
-                        placeholder = bgPainter,
+                        placeholder = loadingPainter,
                         error = bgPainter,
                         fallback = bgPainter
                     )

@@ -49,6 +49,15 @@ class VersionUtilsTest {
     fun `lite releases compare by version, not by the edition suffix`() {
         assertTrue(VersionUtils.isRemoteNewer("v1.4.3-lite", "1.4.2-lite"))
         assertFalse(VersionUtils.isRemoteNewer("v1.4.2-lite", "1.4.2-lite"))
+        assertTrue(VersionUtils.isRemoteNewer("v2.0.0-lite", "1.4.10-lite"))
+    }
+
+    @Test
+    fun `lite beta is a prerelease that sits between the stable releases around it`() {
+        assertTrue(VersionUtils.isPrerelease("1.5.0-beta.1-lite"))
+        assertTrue(VersionUtils.isRemoteNewer("v1.5.0-beta.1-lite", "1.4.10-lite"))
+        assertTrue(VersionUtils.isRemoteNewer("v1.5.0-beta.2-lite", "1.5.0-beta.1-lite"))
+        assertTrue(VersionUtils.isRemoteNewer("v1.5.0-lite", "1.5.0-beta.2-lite"))
     }
 
     // TG-START: own-fork -tg.N iteration is the OTA build number (re-apply on upstream merge)

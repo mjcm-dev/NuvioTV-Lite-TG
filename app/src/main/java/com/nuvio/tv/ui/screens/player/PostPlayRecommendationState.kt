@@ -48,7 +48,8 @@ data class PostPlayRecommendationUiState(
     val hasReturnedToPlayer: Boolean = false,
     val countdownSeconds: Int? = null,
     val isTrailerPlaying: Boolean = false,
-    val hasAutoPlayedTrailer: Boolean = false
+    val hasAutoPlayedTrailer: Boolean = false,
+    val mdbListRatingOrder: List<String> = com.nuvio.tv.domain.model.MDBListSettings.DEFAULT_RATING_ORDER
 ) {
     val canNavigatePrevious: Boolean
         get() = !isChangingRecommendation && recommendationIndex > 0
@@ -90,13 +91,17 @@ internal fun PlayerUiState.blocksPostPlayRecommendation(): Boolean {
 /**
  * Candidate indices whose details are resolved up front. Each one costs an addon meta fetch, a
  * TMDB id lookup, an enrichment call, ratings and a trailer lookup, and they all land while the
- * video pipeline is still up — so a low-RAM device resolves only the card on screen and pages
- * the rest in on demand.
+ * video pipeline is still up — so an edition that drops optional work resolves only the card on
+ * screen and pages the rest in on demand.
  */
-internal fun postPlayPrefetchIndices(count: Int, currentIndex: Int, isLowRam: Boolean): IntRange =
+internal fun postPlayPrefetchIndices(
+    count: Int,
+    currentIndex: Int,
+    dropsOptionalWork: Boolean
+): IntRange =
     when {
         count <= 0 -> IntRange.EMPTY
-        !isLowRam -> 0 until count
+        !dropsOptionalWork -> 0 until count
         currentIndex in 0 until count -> currentIndex..currentIndex
         else -> IntRange.EMPTY
     }
@@ -135,10 +140,16 @@ internal fun shouldUsePostPlayRecommendation(
     contentType: String?,
     isNextEpisodeMetadataResolved: Boolean,
     nextEpisodeHasAired: Boolean?,
+    nextEpisodeAvailable: Boolean? = null,
+    nextEpisodeReleased: String? = "",
     enabled: Boolean = true
 ): Boolean = enabled && when (resolvePostPlayContentType(contentType)) {
     ContentType.MOVIE -> true
-    ContentType.SERIES -> isNextEpisodeMetadataResolved && nextEpisodeHasAired != true
+    ContentType.SERIES -> {
+        if (!isNextEpisodeMetadataResolved) false
+        else if (nextEpisodeHasAired != true) true
+        else nextEpisodeReleased.isNullOrBlank() && nextEpisodeAvailable == false
+    }
     else -> false
 }
 
