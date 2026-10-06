@@ -236,10 +236,17 @@ class TelegramRepositoryImpl @Inject constructor(
             listOfNotNull(title, TelegramMediaParser.subtitleHeadVariant(title))
         }
         // TG-END
+        // TG-START: de-abbreviated titles ("S.L." -> "SL"; re-apply on upstream merge)
+        // Dotted forms never match dotless filenames server-side; insert right
+        // after each title so episode-boost queries pick them up first.
+        val withDeabbreviated = expanded.flatMap { title ->
+            listOfNotNull(title, TelegramMediaParser.deabbreviateTitle(title))
+        }
+        // TG-END
         // TG-START: acronyms as matchable titles, min 3 letters (re-apply on upstream merge)
         // Files named just "MIB" can otherwise never reach the threshold; 2-letter
         // acronyms ("EX") are excluded — they over-match unrelated short names.
-        val withAcronyms = expanded.flatMap { title ->
+        val withAcronyms = withDeabbreviated.flatMap { title ->
             val acronym = titleAcronym(title)?.takeIf { it.length >= 3 }
             listOfNotNull(title, acronym)
         }
