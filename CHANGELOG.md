@@ -1,5 +1,11 @@
 # Changelog — NuvioTV Lite Edition
 
+## v2.1.0-lite-tg.3 — 2026-10-07
+
+- Stalled-reader reposition: readers parked behind the cursor with an idle download force one reissue at the playhead instead of waiting forever (PR#27).
+- Temp rotation threshold 200MB free for margin on tight disks (PR#29).
+- Installs as `com.nuvio.tv.lite`, `versionCode` 10028.
+
 ## v2.1.0-lite-tg.2 — 2026-10-07
 
 - Correct 2.x TG iteration: previous `v2.1.0-lite-tg.2` tag was built without the version bump, so its APKs still reported `2.1.0-lite-tg.1` and the updater re-offered them forever. This rebuild carries `versionCode` 10027 with the `.2` suffix baked in. Includes the stalled-reader reposition fix (PR#27). Installs as `com.nuvio.tv.lite`, `versionCode` 10027.
