@@ -556,7 +556,6 @@ fun ContentCard(
                         modifier = Modifier
                             .fillMaxSize()
                             .zIndex(1.5f)
-                            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
                             .drawWithCache {
                                 val gradient = Brush.verticalGradient(
                                     colorStops = arrayOf(
@@ -586,7 +585,6 @@ fun ContentCard(
                         modifier = Modifier
                             .fillMaxSize()
                             .zIndex(1.5f)
-                            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
                             .drawWithCache {
                                 val gradient = Brush.verticalGradient(
                                     colorStops = arrayOf(
@@ -641,11 +639,7 @@ fun ContentCard(
                 // Landscape cards don't change width on expand, so crossfade between
                 // the normal label and the expanded description instead of relying on
                 // the width animation to reveal content.
-                androidx.compose.animation.Crossfade(
-                    targetState = isBackdropExpanded,
-                    animationSpec = tween(durationMillis = if (globalLandscape) 250 else 0),
-                    label = "expandedLabelCrossfade"
-                ) { expanded ->
+                val labelContent: @Composable (Boolean) -> Unit = { expanded ->
                 if (expanded) {
                     Column(modifier = Modifier.fillMaxWidth()) {
                     val ageRating = item.ageRating?.trim()?.takeIf { it.isNotBlank() }
@@ -727,7 +721,17 @@ fun ContentCard(
                     }
                     } // Column (collapsed)
                 }
-                } // Crossfade
+                }
+                if (globalLandscape) {
+                    androidx.compose.animation.Crossfade(
+                        targetState = isBackdropExpanded,
+                        animationSpec = tween(durationMillis = 250),
+                        label = "expandedLabelCrossfade",
+                        content = labelContent
+                    )
+                } else {
+                    labelContent(isBackdropExpanded)
+                }
             }
             } // Box clipToBounds
         }

@@ -91,6 +91,7 @@ internal class MpvEventRelay(
     }
 
     override fun logMessage(prefix: String, level: Int, text: String) {
+        if (level > MPV.mpvLogLevel.MPV_LOG_LEVEL_INFO) return
         if (!active.get() || epoch != controller.mpvEventRelayEpoch) return
         controller.scope.launch {
             if (!active.get() || epoch != controller.mpvEventRelayEpoch) return@launch
@@ -171,11 +172,11 @@ private fun PlayerRuntimeController.onMpvCoreShutdown() {
 }
 
 internal fun PlayerRuntimeController.onMpvLogLine(prefix: String, level: Int, text: String) {
-    val isHttp = MPV_HTTP_ERROR_REGEX.containsMatchIn(text)
     if (level > MPV.mpvLogLevel.MPV_LOG_LEVEL_INFO) return
     val isInfo = level > MPV.mpvLogLevel.MPV_LOG_LEVEL_WARN
     if (isInfo && !mpvInfoLineIsUseful(text)) return
-    if (!isInfo && level > MPV.mpvLogLevel.MPV_LOG_LEVEL_ERROR && !isHttp && !mpvWarnLineIsUseful(prefix, text)) return
+    if (!isInfo && level > MPV.mpvLogLevel.MPV_LOG_LEVEL_ERROR &&
+        !MPV_HTTP_ERROR_REGEX.containsMatchIn(text) && !mpvWarnLineIsUseful(prefix, text)) return
     val body = text.replace(MPV_URL_REGEX, "").trim().take(300)
     if (body.isEmpty()) return
     val line = if (prefix.isBlank()) body else "[${prefix.trim()}] $body"

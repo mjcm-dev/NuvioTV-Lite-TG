@@ -266,10 +266,11 @@ fun GridContentCard(
                                     onDrawBehind { drawRect(gradient) }
                                 }
                         )
-                        val logoRequest = remember(item.logo) {
+                        val logoRequest = remember(item.logo, requestWidthPx, requestHeightPx) {
                             ImageRequest.Builder(context)
                                 .data(item.logo)
                                 .crossfade(true)
+                                .size(width = requestWidthPx, height = requestHeightPx / 3)
                                 .build()
                         }
                         AsyncImage(
@@ -324,10 +325,11 @@ fun GridContentCard(
                             .height(cardHeight * 0.45f)
                             .background(logoScrim)
                     )
-                    val logoRequest = remember(item.logo) {
+                    val logoRequest = remember(item.logo, requestWidthPx, requestHeightPx) {
                         ImageRequest.Builder(context)
                             .data(item.logo)
                             .crossfade(true)
+                            .size(width = requestWidthPx, height = requestHeightPx / 3)
                             .build()
                     }
                     AsyncImage(

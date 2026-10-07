@@ -10,6 +10,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
 
@@ -21,7 +22,7 @@ internal class MdbListRatingsDiskCache(
     private data class Entry(val ratings: MDBListRatings, val storedAtMs: Long)
 
     private val mutex = Mutex()
-    private var entries = mutableMapOf<String, Entry>()
+    private val entries = java.util.concurrent.ConcurrentHashMap<String, Entry>()
     private var loaded = false
     private var dirty = false
     private var writeJob: Job? = null
@@ -34,13 +35,13 @@ internal class MdbListRatingsDiskCache(
 
     suspend fun load() {
         if (loaded) return
-        mutex.withLock {
-            if (loaded) return
+        withContext(Dispatchers.IO) { mutex.withLock {
+            if (loaded) return@withLock
             try {
                 val file = cacheFile()
-                if (!file.exists()) { loaded = true; return }
+                if (!file.exists()) { loaded = true; return@withLock }
                 val json = JSONObject(file.readText())
-                val map = mutableMapOf<String, Entry>()
+                val map = HashMap<String, Entry>()
                 val cutoff = now() - TTL_MS
                 for (key in json.keys()) {
                     val obj = json.optJSONObject(key) ?: continue
@@ -51,10 +52,10 @@ internal class MdbListRatingsDiskCache(
                         storedAtMs = storedAt
                     )
                 }
-                entries = map
+                entries.putAll(map)
             } catch (_: Exception) { }
             loaded = true
-        }
+        } }
     }
 
     suspend fun get(key: String): MDBListRatings? {
@@ -69,6 +70,9 @@ internal class MdbListRatingsDiskCache(
 
     fun put(key: String, ratings: MDBListRatings) {
         entries[key] = Entry(ratings, now())
+        if (entries.size > MAX_ENTRIES) {
+            entries.entries.minByOrNull { it.value.storedAtMs }?.let { entries.remove(it.key, it.value) }
+        }
         scheduleSave()
     }
 
@@ -136,5 +140,7 @@ internal class MdbListRatingsDiskCache(
     companion object {
         private const val TTL_MS = 12L * 60L * 60L * 1000L
         private const val SAVE_DEBOUNCE_MS = 2_000L
+        // ponytail: O(n) oldest-eviction per put past the cap; fine at this size.
+        private const val MAX_ENTRIES = 2_000
     }
 }

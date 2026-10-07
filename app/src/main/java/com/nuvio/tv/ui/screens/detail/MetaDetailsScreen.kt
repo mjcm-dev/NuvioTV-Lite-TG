@@ -3273,7 +3273,7 @@ private fun BackdropLayer(
             onEnded = onTrailerEnded,
             onFirstFrameRendered = { isBackgroundTrailerRendered = true },
             cropToFill = isBackgroundTrailerPlaying,
-            autoCropLetterbox = isBackgroundTrailerPlaying,
+            autoCropLetterbox = isBackgroundTrailerPlaying && !com.nuvio.tv.core.device.DeviceMemoryTier.dropsOptionalWork,
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer {
