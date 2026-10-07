@@ -531,6 +531,7 @@ internal fun DiscoverGrid(
     val totalCells = items.size + if (actionType != DiscoverGridAction.None) 1 else 0
     val hasActionCell = actionType != DiscoverGridAction.None
 
+    val globalLandscape = com.nuvio.tv.ui.components.LocalLandscapePosterMode.current
     val adaptiveStyle = remember(posterCardStyle) {
         val cardWidth = posterCardStyle.width
         posterCardStyle.copy(
@@ -602,7 +603,9 @@ internal fun DiscoverGrid(
 
     LazyVerticalGrid(
         state = gridState,
-        columns = GridCells.Adaptive(minSize = adaptiveStyle.width),
+        columns = GridCells.Adaptive(
+            minSize = if (globalLandscape) posterCardStyle.height else adaptiveStyle.width
+        ),
         modifier = Modifier.fillMaxSize()
             .focusRestorer { focusedItemRequester }
             .dpadVerticalFastScroll(
@@ -749,15 +752,18 @@ private fun DiscoverActionCard(
         DiscoverGridAction.None -> ""
     }
     val cardDepthStyle = LocalCardDepthStyle.current
+    val globalLandscape = com.nuvio.tv.ui.components.LocalLandscapePosterMode.current
 
     Column(
-        modifier = modifier.width(posterCardStyle.width)
+        modifier = modifier.then(if (globalLandscape) Modifier.fillMaxWidth() else Modifier.width(posterCardStyle.width))
     ) {
         Card(
             onClick = onClick,
             modifier = Modifier
-                .width(posterCardStyle.width)
-                .height(posterCardStyle.height)
+                .then(
+                    if (globalLandscape) Modifier.fillMaxWidth().aspectRatio(com.nuvio.tv.domain.model.PosterShape.LANDSCAPE.aspectRatio())
+                    else Modifier.width(posterCardStyle.width).height(posterCardStyle.height)
+                )
                 .focusProperties { canFocus = actionType != DiscoverGridAction.Loading }
                 .onPreviewKeyEvent { event ->
                     actionType != DiscoverGridAction.None &&
@@ -808,7 +814,7 @@ private fun DiscoverActionCard(
         // Reserve space for label to match GridContentCard height
         Spacer(
             modifier = Modifier
-                .width(posterCardStyle.width)
+                .then(if (globalLandscape) Modifier.fillMaxWidth() else Modifier.width(posterCardStyle.width))
                 .padding(top = NuvioTheme.spacing.sm)
                 .height(MaterialTheme.typography.titleMedium.lineHeight.value.dp)
         )
