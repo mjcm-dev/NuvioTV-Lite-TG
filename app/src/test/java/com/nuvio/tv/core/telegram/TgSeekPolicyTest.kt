@@ -110,6 +110,14 @@ class TgSeekPolicyTest {
     }
 
     @Test
+    fun `default rotate threshold keeps margin from system warning`() {
+        // Umbral 200MB: con 199MB libres y temp grande ya rota.
+        assertTrue(TgSeekPolicy.shouldRotate(199L * mb, 500L * mb))
+        assertFalse(TgSeekPolicy.shouldRotate(200L * mb, 500L * mb))
+        assertFalse(TgSeekPolicy.shouldRotate(199L * mb, 100L * mb))
+    }
+
+    @Test
     fun `speculative opens never move an existing cursor`() {
         // Primera emisión: siempre.
         assertTrue(TgSeekPolicy.mayReposition(isOpenPhase = true, hasCursor = false, nowMs = 10_000L, lastIssueMs = 0L))

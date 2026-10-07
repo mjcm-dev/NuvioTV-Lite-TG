@@ -67,8 +67,10 @@ object TgWindowConfig {
     /** Con esto o más se reanuda tras el freno. */
     const val SPACE_RESUME_BYTES = 150L * 1024L * 1024L
 
-    /** Rotación: con menos de esto Y temp mayor que ROTATE_FILE, se rota. */
-    const val SPACE_ROTATE_FREE_BYTES = 120L * 1024L * 1024L
+    /** Rotación: con menos de esto Y temp mayor que ROTATE_FILE, se rota.
+     * 200MB (no 120MB) para no acercarse nunca al aviso del sistema en
+     * cajas justas de disco: rota antes a cambio de algún micro-corte más. */
+    const val SPACE_ROTATE_FREE_BYTES = 200L * 1024L * 1024L
     const val SPACE_ROTATE_FILE_BYTES = 300L * 1024L * 1024L
 
     /** Auto-evict de otras descargas durante reproducción bajo este libre. */
