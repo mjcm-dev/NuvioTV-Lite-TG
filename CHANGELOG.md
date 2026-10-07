@@ -1,5 +1,9 @@
 # Changelog — NuvioTV Lite Edition
 
+## v2.1.0-lite-tg.2 — 2026-10-07
+
+- Correct 2.x TG iteration: previous `v2.1.0-lite-tg.2` tag was built without the version bump, so its APKs still reported `2.1.0-lite-tg.1` and the updater re-offered them forever. This rebuild carries `versionCode` 10027 with the `.2` suffix baked in. Includes the stalled-reader reposition fix (PR#27). Installs as `com.nuvio.tv.lite`, `versionCode` 10027.
+
 ## v2.1.0-lite-tg.1 — 2026-10-06
 
 - TG port of upstream `v2.1.0-lite` (2.0 restart: Nuvio Engine P2P kept OFF in this fork — `FEATURE_TORRENT_ENABLED=false` — upstream `1.1.0-beta` sync, VOD cache rework, rail-grouped settings with TELEGRAM under SERVICES, bidi-aware stream titles, shuffle episodes, localizations).
