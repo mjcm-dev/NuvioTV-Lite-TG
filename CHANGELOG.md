@@ -12,6 +12,31 @@ channel.
 
 Lite numbering restarted at 2.0.0 after 1.4.10; it is independent of upstream's version.
 
+## v2.2.0-lite — 2026-10-07
+
+**Subtitles that sync themselves:** turn on Auto Sync Subtitles under Settings → Playback →
+Subtitles to retime add-on subtitles against the ones embedded in the video.
+
+### Synced with upstream NuvioTV (1.1.0-beta.4)
+- [upstream] Subtitle AutoSync for add-on subtitles, off by default. @DavidVamaiotu
+- [upstream] A global landscape poster mode across every layout and screen. @skoruppa
+- [upstream] MDBList lists in the Library, with external lists, list selection and release-date sorting. @kernexshadow
+- [upstream] MDBList ratings are cached on disk and show in TMDB collections and the Grid hero. @skoruppa
+- [upstream] Next-episode sources can preload, and a saved binge group plays as soon as it appears. @skoruppa
+- [upstream] Parallel connections over HTTP/2 now open one socket each instead of sharing one. @ysosrs123
+- [upstream] Nuvio Engine 0.1.4 fixes the P2P cache path, and a new ExoPlayer build fixes native crashes. @tapframe @halibiram
+- [upstream] Back after a finished episode or a binge-group skip now behaves, and libmpv errors show their cause. @halibiram
+- [upstream] Season tabs scroll with edge pinning, stream focus stays put, and libass works in ExoPlayer. @halibiram @skoruppa
+- [upstream] Screen-reader labels, RTL input fixes, new Bengali and Croatian, and many translation updates. @thebetterfarhan @uHleaf @haveAnIssue @TanvirSdq @CroniX-Business @nosvasedis @blueocean2308
+- [upstream] The player timeline no longer recomposes for the live flag, and Watch Next waits for playback to stop. @halibiram
+
+### Upstream's new work kept off the hot path
+- The stream list stays paged on every add-on response instead of only the first.
+- The MDBList ratings disk cache loads off the main thread, is thread-safe, and is capped at 2,000 titles.
+- Portrait poster cards no longer carry an unused crossfade.
+- Landscape card gradients skip the offscreen layer, and grid clearlogos decode at card size.
+- mpv debug log lines are dropped on arrival instead of being processed first.
+
 ## v2.1.0-lite — 2026-09-29
 
 **P2P is back:** Lite now streams torrents on upstream's new Nuvio Engine. Turn it on under
