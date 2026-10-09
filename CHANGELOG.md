@@ -1,5 +1,10 @@
 # Changelog — NuvioTV Lite Edition
 
+## v2.1.0-lite-tg.4 — 2026-10-09
+
+- Unreadable TG sources now show an error ("formato ilegible, prueba con otra fuente") instead of ending silently with no frame and no message (PR#31).
+- Installs as `com.nuvio.tv.lite`, `versionCode` 10029.
+
 ## v2.1.0-lite-tg.3 — 2026-10-07
 
 - Stalled-reader reposition: readers parked behind the cursor with an idle download force one reissue at the playhead instead of waiting forever (PR#27).
