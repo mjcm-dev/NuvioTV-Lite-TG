@@ -2934,6 +2934,9 @@
     <string name="player_error_mpv_surface_failed">Failed to initialize libmpv surface</string>
     <string name="player_error_mpv_playback_failed">Failed to initialize libmpv playback</string>
     <string name="player_error_torrent">Torrent error: %1$s</string>
+    <!-- TG-START: unreadable TG source (re-apply on upstream merge) -->
+    <string name="player_error_tg_unreadable">This Telegram file could not be played (unreadable format). Try another source.</string>
+    <!-- TG-END -->
     <string name="player_error_playback_fallback">Playback error</string>
     <!-- Subtitle timing recovery -->
     <string name="subtitle_timing_file_no_lines">No subtitle lines were found in this file.</string>

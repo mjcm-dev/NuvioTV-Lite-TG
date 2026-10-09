@@ -187,6 +187,20 @@ internal fun shouldTreatAsNaturalPlaybackCompletion(
 /** Streams shorter than ~2:01 are treated as error/placeholder clips, not real episodes. */
 internal fun isShortPlaceholderDuration(duration: Long): Boolean = duration in 1..120_999L
 
+// TG-START: unreadable TG source feedback (re-apply on upstream merge)
+/**
+ * A TG file the extractor cannot parse (e.g. AVI without a reachable index)
+ * ends instantly with no frame and no error. Surface it instead of returning
+ * silently — but only when nothing ever rendered; a spurious ENDED
+ * mid-playback keeps the old silent path.
+ */
+internal fun shouldShowUnreadableSourceError(
+    isTelegramSource: Boolean,
+    hasRenderedFirstFrame: Boolean,
+    hasFatalError: Boolean
+): Boolean = isTelegramSource && !hasRenderedFirstFrame && !hasFatalError
+// TG-END
+
 internal fun PlayerRuntimeController.startProgressUpdates() {
     progressJob?.cancel()
     progressJob = scope.launch {
@@ -680,6 +694,24 @@ internal fun PlayerRuntimeController.handleNaturalPlaybackEnded() {
         _uiState.update { it.copy(playbackEnded = false) }
         nextEpisodeAutoPlayJob?.cancel()
         nextEpisodeAutoPlayJob = null
+        // TG-START: unreadable TG source feedback (re-apply on upstream merge)
+        if (shouldShowUnreadableSourceError(
+                isTelegramSource = isTelegramSource(),
+                hasRenderedFirstFrame = hasRenderedFirstFrame,
+                hasFatalError = hasFatalError
+            )
+        ) {
+            cancelNextEpisodeAutoPlayOnFatalError()
+            _uiState.update {
+                it.copy(
+                    error = context.getString(com.nuvio.tv.R.string.player_error_tg_unreadable),
+                    isBuffering = false,
+                    showLoadingOverlay = false,
+                    showPauseOverlay = false
+                )
+            }
+        }
+        // TG-END
         return
     }
 
