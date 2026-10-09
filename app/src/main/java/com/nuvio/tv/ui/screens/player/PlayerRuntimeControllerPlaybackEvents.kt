@@ -223,6 +223,8 @@ internal fun PlayerRuntimeController.startProgressUpdates() {
                                 (pos > 0L || (playingNow && !cacheBuffering && playerDuration > 0L))
                             if (firstFrameReady) {
                                 hasRenderedFirstFrame = true
+                                resetMpvStartupWatchdog()
+                                scheduleMpvStableProgressReset()
                                 val clickToFirstFrameMs = launchStartedAtElapsedMs
                                     ?.let { (android.os.SystemClock.elapsedRealtime() - it).coerceAtLeast(0L) }
                                     ?: -1L
@@ -240,6 +242,7 @@ internal fun PlayerRuntimeController.startProgressUpdates() {
                                 }
                             }
                         }
+                    maybeRunMpvStartupWatchdog(view)
                     if (playerDuration > lastKnownDuration) {
                         lastKnownDuration = playerDuration
                     }
@@ -369,16 +372,7 @@ internal fun PlayerRuntimeController.startProgressUpdates() {
                         if (NuvioExoPlayerPerformanceHelper.shouldLogMemoryFootprint()) {
                             val defaultAllocator = _loadControl?.allocator as? androidx.media3.exoplayer.upstream.DefaultAllocator
                             val totalFootprintBytes = defaultAllocator?.let { allocator ->
-                                try {
-                                    allocator.memoryFootprint.toLong()
-                                } catch (_: Throwable) {
-                                    try {
-                                        val method = allocator.javaClass.getMethod("getMemoryFootprint")
-                                        (method.invoke(allocator) as? Number)?.toLong() ?: 0L
-                                    } catch (_: Throwable) {
-                                        0L
-                                    }
-                                }
+                                runCatching { allocator.memoryFootprint.toLong() }.getOrDefault(0L)
                             } ?: 0L
                             val totalActiveBytes = defaultAllocator?.totalBytesAllocated?.toLong() ?: 0L
                             val footprintMb = totalFootprintBytes / (1024 * 1024)
@@ -1129,8 +1123,7 @@ internal fun PlayerRuntimeController.setSubtitleDelayMs(targetMs: Int, showOverl
         _uiState.update {
             it.copy(
                 subtitleDelayMs = newDelayMs,
-                showSubtitleDelayOverlay = false,
-                showControls = true
+                showSubtitleDelayOverlay = false
             )
         }
     }
@@ -1366,6 +1359,7 @@ fun PlayerRuntimeController.onEvent(event: PlayerEvent) {
             pendingAddonSubtitleTrackId = null
             pendingAudioSelectionAfterSubtitleRefresh = null
             resetSubtitleAutoSyncState()
+            cancelAutomaticSubtitleSync() // AutoSync hook
             rememberInternalSubtitleSelection(event.index)
             selectSubtitleTrack(event.index)
             _uiState.update {
@@ -1389,6 +1383,7 @@ fun PlayerRuntimeController.onEvent(event: PlayerEvent) {
             pendingAddonSubtitleTrackId = null
             pendingAudioSelectionAfterSubtitleRefresh = null
             resetSubtitleAutoSyncState()
+            cancelAutomaticSubtitleSync() // AutoSync hook
             rememberSubtitleDisabled()
             disableSubtitles()
             _uiState.update {
@@ -1411,6 +1406,7 @@ fun PlayerRuntimeController.onEvent(event: PlayerEvent) {
             autoSubtitleSelected = true
             rememberAddonSubtitleSelection(event.subtitle)
             selectAddonSubtitle(event.subtitle)
+            runSelectedAutomaticSubtitleSync(event.subtitle) // AutoSync hook
             _uiState.update {
                 it.copy(
                     showSubtitleOverlay = true,

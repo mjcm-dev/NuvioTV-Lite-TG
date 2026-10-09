@@ -77,6 +77,7 @@ class PostPlayRecommendationStateTest {
         assertFalse(loaded.blocksNaturalCompletion)
         assertTrue(loaded.copy(isVisible = true).blocksNaturalCompletion)
         assertTrue(loaded.copy(isLoadingRecommendation = true).blocksNaturalCompletion)
+        assertFalse(loaded.copy(isLoadingRecommendation = true, hasReturnedToPlayer = true).blocksNaturalCompletion)
     }
 
     @Test
