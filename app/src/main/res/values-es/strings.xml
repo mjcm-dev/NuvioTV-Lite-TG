@@ -2797,6 +2797,9 @@
     <string name="player_error_mpv_surface_failed">Error al inicializar la superficie de libmpv</string>
     <string name="player_error_mpv_playback_failed">Error al inicializar la reproducción de libmpv</string>
     <string name="player_error_torrent">Error de torrent: %1$s</string>
+    <!-- TG-START: unreadable TG source (re-apply on upstream merge) -->
+    <string name="player_error_tg_unreadable">Este archivo no se puede reproducir (formato ilegible). Prueba con otra fuente.</string>
+    <!-- TG-END -->
     <string name="player_error_playback_fallback">Error de reproducción</string>
     <!-- Subtitle timing recovery -->
     <string name="subtitle_timing_file_no_lines">No se encontraron líneas de subtítulos en este archivo.</string>
