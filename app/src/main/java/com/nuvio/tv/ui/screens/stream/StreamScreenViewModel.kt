@@ -266,8 +266,9 @@ class StreamScreenViewModel @Inject constructor(
                             updatedAllStreams.filter { it.addonName == currentFilter }
                         }
                         streamFilterFullList = fullFiltered
-                        val pageEnd = state.filteredStreams.size.coerceAtMost(fullFiltered.size)
+                        val pageEnd = state.filteredStreams.size
                             .coerceAtLeast(STREAM_FILTER_PAGE_SIZE.coerceAtMost(fullFiltered.size))
+                            .coerceAtMost(fullFiltered.size)
                         state.copy(
                             addonStreams = updatedAddonStreams,
                             allStreams = updatedAllStreams,
@@ -582,12 +583,32 @@ class StreamScreenViewModel @Inject constructor(
                 val orderedStreams = prioritizePreferredStream(allStreams, preferredResumeStreamUrl)
                 // TG-END
                 val availableAddons = mergedAddonStreams.map { it.addonName }
+
+                // Early binge group match: if we have a persisted binge group, try to
+                // match it immediately on every emission without waiting for all addons.
+                val earlyBingeGroupMatch = if (!autoPlayHandledForSession && !resolvedAutoPlayTarget && persistedBingeGroup != null) {
+                    StreamAutoPlaySelector.selectAutoPlayStream(
+                        streams = allStreams,
+                        mode = playerSettings.streamAutoPlayMode,
+                        regexPattern = playerSettings.streamAutoPlayRegex,
+                        source = playerSettings.streamAutoPlaySource,
+                        installedAddonNames = installedAddonOrder.toSet(),
+                        selectedAddons = playerSettings.streamAutoPlaySelectedAddons,
+                        selectedPlugins = playerSettings.streamAutoPlaySelectedPlugins,
+                        preferredBingeGroup = persistedBingeGroup,
+                        preferBingeGroupInSelection = true,
+                        bingeGroupOnly = true
+                    )
+                } else null
+
                 // Auto-select only after all addons have responded or the
                 // configured timeout has elapsed. This gives slower addons a
                 // chance to return higher-quality streams before the selector
                 // picks from whatever is available.
                 val shouldAutoSelect = !autoPlayHandledForSession && !resolvedAutoPlayTarget && isAllLoaded
-                val selectedAutoPlayStream = if (!shouldAutoSelect) {
+                val selectedAutoPlayStream = if (earlyBingeGroupMatch != null) {
+                    earlyBingeGroupMatch
+                } else if (!shouldAutoSelect) {
                     null
                 } else {
                     StreamAutoPlaySelector.selectAutoPlayStream(
@@ -617,11 +638,10 @@ class StreamScreenViewModel @Inject constructor(
                 }
                 // TG-END
                 streamFilterFullList = fullFiltered
-                val paginatedStreams = if (fullFiltered.size > STREAM_FILTER_PAGE_SIZE) {
-                    fullFiltered.subList(0, STREAM_FILTER_PAGE_SIZE)
-                } else {
-                    fullFiltered
-                }
+                val pageEnd = _uiState.value.filteredStreams.size
+                    .coerceAtLeast(STREAM_FILTER_PAGE_SIZE.coerceAtMost(fullFiltered.size))
+                    .coerceAtMost(fullFiltered.size)
+                val paginatedStreams = if (pageEnd >= fullFiltered.size) fullFiltered else fullFiltered.subList(0, pageEnd)
 
                 updateUiStateIfChanged {
                     it.copy(
@@ -732,8 +752,9 @@ class StreamScreenViewModel @Inject constructor(
                                 }
                                 // TG-END
                                 streamFilterFullList = fullFiltered
-                                val pageEnd = state.filteredStreams.size.coerceAtMost(fullFiltered.size)
+                                val pageEnd = state.filteredStreams.size
                                     .coerceAtLeast(STREAM_FILTER_PAGE_SIZE.coerceAtMost(fullFiltered.size))
+                                    .coerceAtMost(fullFiltered.size)
                                 state.copy(
                                     addonStreams = updatedGroups,
                                     // TG-START: expose TG-ordered streams (else updatedAllStreams; re-apply on upstream merge)
