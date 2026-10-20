@@ -26,8 +26,11 @@ import com.nuvio.tv.core.image.StaleWhileRevalidateCacheStrategy
 import com.nuvio.tv.core.runtime.PluginRuntimeHooks
 import com.nuvio.tv.core.sync.androidtv.AndroidTvChannelSyncService
 import com.nuvio.tv.core.network.IPv4FirstDns
+import com.nuvio.tv.core.network.NoDelaySocketFactory
 import com.nuvio.tv.data.local.ImagePerformancePreferences
 import com.nuvio.tv.data.local.SentrySettingsDataStore
+import com.nuvio.tv.data.mediaserver.ServerMatcher
+import com.nuvio.tv.data.mediaserver.ServerUserStateProjection
 import com.nuvio.tv.data.simkl.SimklAnimeIdPreferenceHolder
 import dagger.hilt.android.HiltAndroidApp
 import okhttp3.Cookie
@@ -48,6 +51,8 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
     @Inject lateinit var telegramClientManager: com.nuvio.tv.core.telegram.TelegramClientManager
     // TG-END
     @Inject lateinit var simklAnimeIdPreferenceHolder: SimklAnimeIdPreferenceHolder
+    @Inject lateinit var serverUserStateProjection: dagger.Lazy<ServerUserStateProjection>
+    @Inject lateinit var serverMatcher: dagger.Lazy<ServerMatcher>
 
     companion object {
         /**
@@ -101,6 +106,11 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
         // Opt-in memory diagnostics: always on for the Lite edition and debug builds.
         MemoryDiagnostics.enabled = AppFeaturePolicy.liteMode || BuildConfig.IS_DEBUG_BUILD
         MemoryDiagnostics.snapshot(this, "app-onCreate")
+        // Their graphs pull in TMDB, meta and watch-progress singletons; build them off the main thread.
+        Thread {
+            serverUserStateProjection.get().start()
+            serverMatcher.get().start()
+        }.start()
         // Load locale synchronously so it's available before Activity.attachBaseContext.
         // SharedPreferences reads are fast (cached in memory after first access).
         val tag = getSharedPreferences("app_locale", Context.MODE_PRIVATE)
@@ -125,6 +135,7 @@ class NuvioApplication : Application(), SingletonImageLoader.Factory {
             OkHttpClient.Builder()
                 .dispatcher(imageDispatcher)
                 .dns(IPv4FirstDns())
+                .socketFactory(NoDelaySocketFactory)
                 .connectTimeout(4, TimeUnit.SECONDS)
                 .readTimeout(5, TimeUnit.SECONDS)
                 .callTimeout(8, TimeUnit.SECONDS)
