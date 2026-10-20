@@ -1,5 +1,11 @@
 # Changelog — NuvioTV Lite Edition
 
+## v2.3.0-lite-tg.1 — 2026-10-20
+
+- TG port of upstream `v2.3.0-lite`: watch party (host/guest sync, shared stream card, party code panel), media servers library (Jellyfin/Emby/Plex via `ServerStreams`, native server playback target), debrid stream presentation rework, 4K trailers resolved in-app, tracking settings moved inline, ambient slideshow, dedicated socket factories (no-delay/playback/realtime), filename episode matcher + player session tracker, Nuvio Engine 0.1.5.
+- Merge fixes: `PlaybackAvailability` now ORs addons, scrapers, media servers and the linked Telegram account; stream cards keep the TG resume-prefix badge alongside upstream party badges (`isPreferredResumeStream` defaults to false for party/shared cards).
+- P2P engine stays OFF in this fork. All TG blocks re-applied (windowed streaming, search, cache screen, rail entry, OTA identity). Installs as `com.nuvio.tv.lite`, `versionCode` 10031.
+
 ## v2.2.0-lite-tg.1 — 2026-10-09
 
 - TG port of upstream `v2.2.0-lite` (upstream `1.1.0-beta.4` sync: subtitle AutoSync, landscape posters, MDBList library, binge preload/groups, HTTP/2 parallel sockets, Nuvio Engine 0.1.4, ExoPlayer native crash fix, libass in ExoPlayer, translations).
@@ -93,6 +99,33 @@ than the last one shipped. Stable releases are published as full releases; betas
 channel.
 
 Lite numbering restarted at 2.0.0 after 1.4.10; it is independent of upstream's version.
+
+## v2.3.0-lite — 2026-10-17
+
+**Jellyfin and Emby:** add your media servers under Settings to browse, play and sync watched state alongside your add-ons.
+
+### Synced with upstream NuvioTV (1.1.0-beta.7)
+- [upstream] Jellyfin and Emby servers with library browsing, direct play or transcoding, and watched-state sync. @tapframe
+- [upstream] Watch parties (experimental) sync playback with friends through an invite code or QR. @tapframe
+- [upstream] Ambient Mode shows a backdrop slideshow when the app sits idle, on by default after 5 minutes. @tapframe @ram130
+- [upstream] Subtitle AutoSync now works on the libmpv engine and decodes add-on subtitles with charset detection. @kernexshadow
+- [upstream] MDBList dynamic and liked lists appear in the Library. @kernexshadow
+- [upstream] Frame rate matching prefers clean refresh multiples and reruns after episode or source switches. @ysosrs123
+- [upstream] Playback sockets use TCP_NODELAY and a larger receive window, and parallel chunks live off the Java heap. @ysosrs123
+- [upstream] Trailers back off on YouTube rate limits, skip unsupported codecs, and gain a 4K Trailers setting. @kernexshadow
+- [upstream] Modern home uses a lighter card and no longer recomposes on every D-pad move. @deejay189393
+- [upstream] Subtitles stay above the player controls and the next-episode card, and their offset previews in the overlay. @ram130 @halibiram
+- [upstream] Fixes for audio fallback loops, stale filenames after a stream switch, usenet failover info and torrent recovery. @kernexshadow
+- [upstream] Trakt keeps Continue Watching when a progress request fails and skips redundant refreshes. @kernexshadow
+- [upstream] Binge-group selection matches on filename, and episodes can be stepped through in the options overlay. @skoruppa @ram130
+- [upstream] Translation updates for Hungarian, Italian, Polish, Turkish, Greek, Hebrew and more. @peterdeme @WhiteGiso @skoruppa @halibiram @nosvasedis @blueocean2308 @uHleaf
+
+### Upstream's new work kept off the hot path
+- Ambient Mode fetches its slides 30 seconds before the screensaver starts instead of on every launch.
+- Media-server sync services start on a background thread instead of during app startup.
+- Trailer settings collectors run only on builds that play trailers in-app.
+- Server catalogs bypass the add-on catalog cache, and the 4K trailer default reads the cached RAM tier.
+- A cancelled Trakt refresh no longer surfaces as an error and is refetched on the next poll.
 
 ## v2.2.0-lite — 2026-10-07
 

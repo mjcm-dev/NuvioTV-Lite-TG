@@ -11,6 +11,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nuvio.tv.core.build.AppFeaturePolicy
 import com.nuvio.tv.core.streams.PlaybackAvailability
 import com.nuvio.tv.data.local.PluginDataStore
+import com.nuvio.tv.data.mediaserver.ServerRepository
+import com.nuvio.tv.data.mediaserver.ServerStreams
 import com.nuvio.tv.domain.repository.AddonRepository
 import com.nuvio.tv.domain.repository.MetaRepository
 // TG-START: linked Telegram account serves movies/series (re-apply on upstream merge)
@@ -33,8 +35,10 @@ internal class PlaybackAvailabilityViewModel @Inject constructor(
     addonRepository: AddonRepository,
     pluginDataStore: PluginDataStore,
     metaRepository: MetaRepository,
+    serverRepository: ServerRepository,
+    serverStreams: ServerStreams,
     // TG-START: linked Telegram account serves movies/series (re-apply on upstream merge)
-    telegramClientManager: TelegramClientManager? = null,
+    telegramClientManager: TelegramClientManager? = null
     // TG-END
 ) : ViewModel() {
     private val enabledScrapers = if (AppFeaturePolicy.pluginsEnabled) {
@@ -53,19 +57,22 @@ internal class PlaybackAvailabilityViewModel @Inject constructor(
     val availability = combine(
         addonRepository.getInstalledAddons(),
         enabledScrapers,
+        serverRepository.uiState,
         // TG-START: linked Telegram account serves movies/series (re-apply on upstream merge)
-        telegramCanServe,
-        { addons, scrapers, telegram ->
-            PlaybackAvailability(
-                addons,
-                scrapers,
-                isLoaded = true,
-                cachedMeta = metaRepository::getCachedMeta,
-                telegramCanServe = telegram
-            )
-        }
+        telegramCanServe
         // TG-END
-    ).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PlaybackAvailability())
+    ) { addons, scrapers, _, telegram ->
+        PlaybackAvailability(
+            addons,
+            scrapers,
+            isLoaded = true,
+            cachedMeta = metaRepository::getCachedMeta,
+            serverStreams = serverStreams::canServe,
+            // TG-START: linked Telegram account serves movies/series (re-apply on upstream merge)
+            telegramCanServe = telegram
+            // TG-END
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PlaybackAvailability())
 }
 
 @Composable
