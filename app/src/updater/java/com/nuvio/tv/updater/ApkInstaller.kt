@@ -3,6 +3,7 @@ package com.nuvio.tv.updater
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInfo
+import android.content.pm.PackageInstaller
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -18,7 +19,7 @@ object ApkInstaller {
     // TG-START: updater observability, pre-install gate outcome (re-apply on upstream merge)
     private const val TAG = "ApkInstaller"
 
-    /** Outcome of the pre-install gate in [launchInstall]. */
+    /** Outcome of the pre-install gate in [UpdateViewModel.installUpdateOrRequestPermission]. */
     enum class LaunchGate { LAUNCH, SIGNATURE_MISMATCH, UNVERIFIABLE }
 
     /**
@@ -54,37 +55,86 @@ object ApkInstaller {
         }
     }
 
-    // TG-START: updater observability, delegate unverifiable files to system installer (re-apply on upstream merge)
+    // TG-START: pre-install gate wrapper, tags the outcome for logcat (re-apply on upstream merge)
     /**
-     * Hands [apkFile] to the system installer. Genuine mismatches are still
-     * blocked here; when the archive certificates cannot even be read (or the
-     * install intent cannot be fired), the outcome is UNVERIFIABLE so the UI
-     * can say so instead of crying wolf about signatures.
+     * Classifies [apkFile] against the installed build's certificates. Kept as a pure
+     * predicate so the decision is unit-testable and the UI can tell a genuine mismatch
+     * from an unreadable archive (old OEM package managers return no certificates).
      */
-    fun launchInstall(context: Context, apkFile: File): LaunchGate {
+    internal fun gate(context: Context, apkFile: File): LaunchGate {
         val installed = signingDigests(context, null)
         val archive = signingDigests(context, apkFile.absolutePath)
-        Log.d(TAG, "launchInstall file=${apkFile.name} size=${apkFile.length()} installedDigests=$installed archiveDigests=$archive")
-        if (gate(installed, archive) == LaunchGate.SIGNATURE_MISMATCH) {
-            Log.w(TAG, "launchInstall rejected: genuine signature mismatch")
-            return LaunchGate.SIGNATURE_MISMATCH
-        }
-        val launched = runCatching {
-            val authority = "${BuildConfig.APPLICATION_ID}.fileprovider"
-            val uri = FileProvider.getUriForFile(context, authority, apkFile)
-
-            val intent = Intent(Intent.ACTION_VIEW)
-                .setDataAndType(uri, "application/vnd.android.package-archive")
-                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-
-            context.startActivity(intent)
-        }.onFailure { e ->
-            Log.e(TAG, "launchInstall startActivity failed", e)
-        }.isSuccess
-        return if (launched) LaunchGate.LAUNCH else LaunchGate.UNVERIFIABLE
+        val outcome = gate(installed, archive)
+        Log.d(TAG, "gate=${outcome} file=${apkFile.name} size=${apkFile.length()} installedDigests=$installed archiveDigests=$archive")
+        return outcome
     }
     // TG-END
+
+    /**
+     * Installs [apkFile] as an update of this app through a PackageInstaller session, adding the APK's own dex
+     * metadata so the new version is compiled at install time. A [background] install asks the system to skip the
+     * confirmation screen, which Android 12+ allows for an app updating itself; elsewhere the system still asks.
+     * The outcome arrives in [UpdateInstallResultReceiver].
+     */
+    fun install(
+        context: Context,
+        apkFile: File,
+        background: Boolean,
+        withDexMetadata: Boolean = true
+    ) {
+        val packageInstaller = context.packageManager.packageInstaller
+        val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
+            setAppPackageName(context.packageName)
+            if (background && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
+            }
+        }
+        val dexMetadata = if (withDexMetadata) {
+            UpdateDexMetadata.extract(apkFile, Build.VERSION.SDK_INT, File(apkFile.parentFile, "update.dm"))
+        } else {
+            null
+        }
+        val sessionId = packageInstaller.createSession(params)
+        try {
+            packageInstaller.openSession(sessionId).use { session ->
+                session.writeFile("base.apk", apkFile)
+                dexMetadata?.let { session.writeFile("base.dm", it) }
+                session.commit(
+                    UpdateInstallResultReceiver.statusReceiver(
+                        context = context,
+                        sessionId = sessionId,
+                        apkFile = apkFile,
+                        background = background,
+                        withDexMetadata = dexMetadata != null
+                    ).intentSender
+                )
+            }
+        } catch (e: Exception) {
+            packageInstaller.abandonSession(sessionId)
+            throw e
+        } finally {
+            dexMetadata?.delete()
+        }
+    }
+
+    /** Hands the APK to the system installer screen, used when the session install cannot be completed. */
+    fun launchSystemInstaller(context: Context, apkFile: File) {
+        val authority = "${BuildConfig.APPLICATION_ID}.fileprovider"
+        val uri = FileProvider.getUriForFile(context, authority, apkFile)
+
+        val intent = Intent(Intent.ACTION_VIEW)
+            .setDataAndType(uri, "application/vnd.android.package-archive")
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+        context.startActivity(intent)
+    }
+
+    /** False when [apkFile] is not signed by the installed app's certificate. */
+    fun isSignedByInstalledApp(context: Context, apkFile: File): Boolean {
+        val installed = signingDigests(context, null)
+        return signingDigests(context, apkFile.absolutePath).any { it in installed }
+    }
 
     /** SHA-256 of each signing certificate of [apkPath], or of the installed app when null. */
     @Suppress("DEPRECATION")
@@ -108,5 +158,14 @@ object ApkInstaller {
                 .digest(signature.toByteArray())
                 .joinToString("") { "%02x".format(it) }
         }.toSet()
+    }
+
+    private fun PackageInstaller.Session.writeFile(name: String, file: File) {
+        file.inputStream().use { input ->
+            openWrite(name, 0, file.length()).use { output ->
+                input.copyTo(output)
+                fsync(output)
+            }
+        }
     }
 }

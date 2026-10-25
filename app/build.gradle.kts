@@ -9,9 +9,38 @@ plugins {
     alias(libs.plugins.sentry.android.gradle)
 }
 
+import com.android.build.gradle.internal.tasks.CompileArtProfileTask
 import com.android.build.gradle.internal.tasks.L8DexDesugarLibTask
 import java.io.File
 import java.util.Properties
+
+// Copies the per-API dex metadata (.dm) files AGP builds next to the binary ART profile into the APK's assets, so the
+// in-app updater can install the next version together with its profile and have it compiled at install time.
+abstract class EmbedUpdateDexMetadataTask : DefaultTask() {
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val dexMetadataDirectory: ConfigurableFileCollection
+
+    @get:OutputDirectory
+    abstract val outputDirectory: DirectoryProperty
+
+    @TaskAction
+    fun embed() {
+        val target = outputDirectory.get().asFile.resolve("updater_dm")
+        target.deleteRecursively()
+        target.mkdirs()
+        val source = dexMetadataDirectory.files.firstOrNull { it.resolve("dex-metadata-map.properties").exists() } ?: return
+        val apiToFile = Properties().apply { source.resolve("dex-metadata-map.properties").inputStream().use(::load) }
+        // Written by hand instead of Properties.store, which adds a timestamp and would make the APK non-reproducible.
+        val indexLines = apiToFile.stringPropertyNames().sortedBy { it.toInt() }.map { api ->
+            val relativePath = apiToFile.getProperty(api)
+            val fileName = relativePath.substringBefore('/') + ".dm"
+            source.resolve(relativePath).copyTo(target.resolve(fileName), overwrite = true)
+            "$api=$fileName"
+        }
+        target.resolve("index.properties").writeText(indexLines.joinToString("\n", postfix = "\n"))
+    }
+}
 
 fun parseBooleanProperty(value: String?): Boolean {
     val normalized = value?.trim()?.lowercase() ?: return false
@@ -126,8 +155,8 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1070
-        versionName = "1.1.0-beta.7"
+        versionCode = 1071
+        versionName = "1.1.0-beta.8"
 
         buildConfigField("String", "PARENTAL_GUIDE_API_URL", "\"${localProperties.getProperty("PARENTAL_GUIDE_API_URL", "")}\"")
         buildConfigField("String", "INTRODB_API_URL", "\"${localProperties.getProperty("INTRODB_API_URL", "")}\"")
@@ -209,13 +238,13 @@ android {
             // Android's installer requires a higher versionCode to update, not just a
             // higher versionName. Bump by 1 per release.
             // TG-START: own-fork release identity (re-apply on upstream merge)
-            versionCode = 10031
-            versionName = "2.3.0"
+            versionCode = 10032
+            versionName = "2.3.1"
             // TG iteration suffix: the trailing .N must be bumped with every
             // -tg.N release (same commit as versionCode), otherwise the OTA
             // comparator cannot tell an installed build from its own tag and
             // re-offers it as an update. Installed versionName carries the N,
-            // release tags carry it too (v2.3.0-lite-tg.N).
+            // release tags carry it too (v2.3.1-lite-tg.N).
             versionNameSuffix = "-lite-tg.1"
             // TG-END
             buildConfigField("boolean", "FEATURE_IN_APP_UPDATES_ENABLED", "true")
@@ -233,15 +262,15 @@ android {
         // lite = playstore plugin stubs + the REAL in-app updater (so it gets OTA from
         // GitHub Releases), but NOT the playstore updater stub.
         getByName("lite") {
-            java.srcDirs("src/playstore/java", "src/updater/java")
+            java.srcDirs("src/playstore/java", "src/updater/java", "src/sentrystub/java")
         }
         // The real in-app updater is shared by full + lite; playstore keeps the no-op stub
         // (Google Play forbids self-updating).
         getByName("full") {
-            java.srcDir("src/updater/java")
+            java.srcDirs("src/updater/java", "src/sentry/java")
         }
         getByName("playstore") {
-            java.srcDir("src/updaterstub/java")
+            java.srcDirs("src/updaterstub/java", "src/sentry/java")
         }
     }
 
@@ -424,6 +453,19 @@ androidComponents {
         val isPlaystore = variant.productFlavors.any { it.second == "playstore" }
         variant.applicationId.set(if (isPlaystore) "com.nuvio.appdebug" else "com.nuviodebug.com")
     }
+    // Only full and lite ship the in-app updater.
+    onVariants { variant ->
+        if (variant.productFlavors.any { it.second == "playstore" }) return@onVariants
+        val variantName = variant.name.replaceFirstChar { it.uppercase() }
+        val embedTask = tasks.register<EmbedUpdateDexMetadataTask>("embed${variantName}UpdateDexMetadata") {
+            dexMetadataDirectory.from(provider {
+                tasks.withType<CompileArtProfileTask>()
+                    .matching { it.name == "compile${variantName}ArtProfile" }
+                    .map { it.dexMetadataDirectory }
+            })
+        }
+        variant.sources.assets?.addGeneratedSourceDirectory(embedTask, EmbedUpdateDexMetadataTask::outputDirectory)
+    }
 }
 
 afterEvaluate {
@@ -585,8 +627,8 @@ dependencies {
         implementation(files("libs/lib-decoder-ffmpeg-release.aar"))
     }
 
-    // libass-android for ASS/SSA subtitle support (from Maven Central)
-    implementation("io.github.peerless2012:ass-media:0.4.0")
+    // libass - atlas-based subtitle rendering (from NuvioMedia/nuvio-libass)
+    implementation(files("libs/nuvio-libass-release.aar"))
     // Local nextlib-mediainfo fork (static FFmpeg; no libav*.so in final AAR)
     implementation(files("libs/nextlib-mediainfo-local.aar"))
     implementation("io.github.abdallahmehiz:mpv-android-lib:0.1.12")
@@ -627,7 +669,9 @@ dependencies {
     implementation(libs.supabase.storage)
     implementation(libs.supabase.realtime)
     implementation(libs.ktor.client.okhttp)
-    implementation(libs.sentry.android)
+    // Lite builds against no-op stubs (src/sentrystub), keeping the SDK out of its APK.
+    "fullImplementation"(libs.sentry.android)
+    "playstoreImplementation"(libs.sentry.android)
 
     // Kotlinx Serialization
     implementation(libs.kotlinx.serialization.json)
