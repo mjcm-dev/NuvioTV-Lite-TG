@@ -1,5 +1,12 @@
 # Changelog — NuvioTV Lite Edition
 
+## v2.3.1-lite-tg.1 — 2026-10-25
+
+- TG port of upstream `v2.3.1-lite` (upstream `1.1.0-beta.8` sync): background update downloads with silent installs while idle on Android 12+ (dex metadata compiled at install time, `UpdateJobService`/`UpdateInstallResultReceiver`/`UpdateBanner` rework), player chapters (progress-bar marks, chapters panel, Matroska chapter parsing on ExoPlayer), libass moved to the atlas-based `nuvio-libass` AAR with render-scale setting and tunneled-playback support, player badges with badge-pack choice, separate HDR/Dolby Vision subtitle style, streams screen resume progress + plugin source names + per-stream audio delay, profile switch no longer leaks screens/data/watched toggles, media-server title lookup and MDBList list fixes, Hebrew/Polish/Slovak/Hungarian/French/Spanish/pt-BR/el translations.
+- Lite packaging: the Sentry SDK and its native libraries are no longer shipped (`src/sentrystub`), trimming the APK; crash reporting was never started in Lite.
+- Merge fixes: the pre-install signature gate (`ApkInstaller.gate`) is kept on top of the new PackageInstaller session flow, so a genuine mismatch still aborts with its own message while unreadable archive certificates fall through to the system installer; the free-space pre-check before downloading stays; the TG resume-prefix badge is re-applied to upstream's reworked streams list (`preferredResumeStreamUrl`); `file_paths.xml` adopts upstream's `updates` FileProvider path.
+- P2P engine stays OFF in this fork. All TG blocks re-applied (windowed streaming, search, cache screen, rail entry, OTA identity). Installs as `com.nuvio.tv.lite`, `versionCode` 10032.
+
 ## v2.3.0-lite-tg.1 — 2026-10-20
 
 - TG port of upstream `v2.3.0-lite`: watch party (host/guest sync, shared stream card, party code panel), media servers library (Jellyfin/Emby/Plex via `ServerStreams`, native server playback target), debrid stream presentation rework, 4K trailers resolved in-app, tracking settings moved inline, ambient slideshow, dedicated socket factories (no-delay/playback/realtime), filename episode matcher + player session tracker, Nuvio Engine 0.1.5.
@@ -100,6 +107,28 @@ channel.
 
 Lite numbering restarted at 2.0.0 after 1.4.10; it is independent of upstream's version.
 
+## v2.3.1-lite — 2026-10-22
+
+**Background updates:** Lite downloads new releases in the background and can install them silently while the TV is idle on Android 12+.
+
+### Synced with upstream NuvioTV (1.1.0-beta.8)
+- [upstream] Updates download in the background, install silently when idle on Android 12+, and compile at install time. @kernexshadow
+- [upstream] Player chapters show as marks on the progress bar with a chapters panel, read from Matroska files on ExoPlayer too. @kernexshadow
+- [upstream] libass moves to a faster atlas-based renderer with a render-scale setting and tunneled-playback support. @skoruppa
+- [upstream] The player shows badges for what is playing, with a choice of badge pack. @tapframe
+- [upstream] A separate subtitle style applies to HDR and Dolby Vision video, detected from the HEVC stream when needed. @kernexshadow
+- [upstream] The streams screen shows resume progress, plugin source names and per-stream audio delay. @WhiteGiso @skoruppa @qwertyuiop8899
+- [upstream] Switching or deleting a profile no longer leaves its screens, data or watched toggles behind. @deejay189393
+- [upstream] Media-server title lookups take one request per title, and MDBList lists load in full and start hidden. @ysosrs123
+- [upstream] Fixes for detail ratings, movie resume state, logo overlap, episode checkmarks and the continue-watching cache. @kernexshadow @oathzed @skoruppa
+- [upstream] Watch parties let phones on the same profile chat. @tapframe
+- [upstream] Translation updates for French, Spanish, Portuguese, Hebrew, Polish, Slovak, Hungarian and more. @SK-Gits @IberianSoldierPC @gu-css @haveAnIssue @skoruppa @blueocean2308 @Omavel
+
+### Kept lean for Lite
+- The Sentry SDK and its native libraries are no longer packaged in Lite, which never started crash reporting anyway. @oxxamclaude-art
+- Background update jobs are not persisted across reboots on Lite, which has no boot receiver, and reschedule on the next launch.
+- Updates are still checked against the installed app's signing certificate before any install, silent or not.
+
 ## v2.3.0-lite — 2026-10-17
 
 **Jellyfin and Emby:** add your media servers under Settings to browse, play and sync watched state alongside your add-ons.
@@ -112,20 +141,16 @@ Lite numbering restarted at 2.0.0 after 1.4.10; it is independent of upstream's 
 - [upstream] MDBList dynamic and liked lists appear in the Library. @kernexshadow
 - [upstream] Frame rate matching prefers clean refresh multiples and reruns after episode or source switches. @ysosrs123
 - [upstream] Playback sockets use TCP_NODELAY and a larger receive window, and parallel chunks live off the Java heap. @ysosrs123
-- [upstream] Trailers back off on YouTube rate limits, skip unsupported codecs, and gain a 4K Trailers setting. @kernexshadow
 - [upstream] Modern home uses a lighter card and no longer recomposes on every D-pad move. @deejay189393
 - [upstream] Subtitles stay above the player controls and the next-episode card, and their offset previews in the overlay. @ram130 @halibiram
 - [upstream] Fixes for audio fallback loops, stale filenames after a stream switch, usenet failover info and torrent recovery. @kernexshadow
-- [upstream] Trakt keeps Continue Watching when a progress request fails and skips redundant refreshes. @kernexshadow
 - [upstream] Binge-group selection matches on filename, and episodes can be stepped through in the options overlay. @skoruppa @ram130
 - [upstream] Translation updates for Hungarian, Italian, Polish, Turkish, Greek, Hebrew and more. @peterdeme @WhiteGiso @skoruppa @halibiram @nosvasedis @blueocean2308 @uHleaf
 
 ### Upstream's new work kept off the hot path
 - Ambient Mode fetches its slides 30 seconds before the screensaver starts instead of on every launch.
 - Media-server sync services start on a background thread instead of during app startup.
-- Trailer settings collectors run only on builds that play trailers in-app.
-- Server catalogs bypass the add-on catalog cache, and the 4K trailer default reads the cached RAM tier.
-- A cancelled Trakt refresh no longer surfaces as an error and is refetched on the next poll.
+- Media-server catalogs bypass the add-on catalog cache.
 
 ## v2.2.0-lite — 2026-10-07
 
