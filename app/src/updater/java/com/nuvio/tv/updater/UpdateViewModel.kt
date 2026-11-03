@@ -22,6 +22,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+private const val TAG = "UpdateInstall"
+
 data class UpdateUiState(
     val isChecking: Boolean = false,
     val update: AppUpdate? = null,
