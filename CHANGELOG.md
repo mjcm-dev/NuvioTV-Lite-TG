@@ -1,5 +1,12 @@
 # Changelog — NuvioTV Lite Edition
 
+## v2.4.0-lite-tg.1 — 2026-11-03
+
+- TG port of upstream `v2.4.0-lite` (upstream `1.1.0-beta.9` sync): libass can draw ASS/SSA subtitles straight onto video frames (new render-mode setting, overlay stays the default, `nuvio-libass` v0.0.11 + `media3-effect`), skip-intro intervals derived from chapter titles with a stable skip button, Simkl/MDBList playback tracking rework (no CPU/memory spikes during scrobbles), plugin sync after add-ons/watch progress and pinned to the profile that started it, modern home hero enrichment without full recomposition, posters on DNS-VPN networks, HDR control dimming, Bluetooth media keys on mpv, decoder release in background, audio delay scoped to the audio language, better badge codec detection, plus fixes for live-stream resume, episode autoplay, USB-audio tunneling, mpv HTTP retries, MKV tracks, debrid language detection, SDH stripping, Jellyfin lookups and focus restoration; accessibility labels and RTL/translation updates. Nuvio Engine bumped to 0.1.6 (P2P still OFF here).
+- Lite packaging: updater dex metadata is skipped for debuggable variants (AGP makes no ART profile for them), so debug builds no longer carry useless `.dm` assets.
+- Merge fixes: the TG pre-install gate and its tagged logging stay on top of upstream's session install (upstream's duplicate install call in `UpdateViewModel` dropped); `versionCode`/`versionName` keep the fork identity.
+- P2P engine stays OFF in this fork. All TG blocks re-applied (windowed streaming, search, cache screen, rail entry, OTA identity). Installs as `com.nuvio.tv.lite`, `versionCode` 10033.
+
 ## v2.3.1-lite-tg.1 — 2026-10-25
 
 - TG port of upstream `v2.3.1-lite` (upstream `1.1.0-beta.8` sync): background update downloads with silent installs while idle on Android 12+ (dex metadata compiled at install time, `UpdateJobService`/`UpdateInstallResultReceiver`/`UpdateBanner` rework), player chapters (progress-bar marks, chapters panel, Matroska chapter parsing on ExoPlayer), libass moved to the atlas-based `nuvio-libass` AAR with render-scale setting and tunneled-playback support, player badges with badge-pack choice, separate HDR/Dolby Vision subtitle style, streams screen resume progress + plugin source names + per-stream audio delay, profile switch no longer leaks screens/data/watched toggles, media-server title lookup and MDBList list fixes, Hebrew/Polish/Slovak/Hungarian/French/Spanish/pt-BR/el translations.
@@ -106,6 +113,27 @@ than the last one shipped. Stable releases are published as full releases; betas
 channel.
 
 Lite numbering restarted at 2.0.0 after 1.4.10; it is independent of upstream's version.
+
+## v2.4.0-lite — 2026-10-31
+
+**ASS subtitles on video:** libass can now draw styled subtitles straight onto video frames, with a render-mode setting.
+
+### Synced with upstream NuvioTV (1.1.0-beta.9)
+- [upstream] libass subtitles can render onto video frames, stay aligned with the video, and no longer stall playback when busy. @skoruppa @kram00n
+- [upstream] Skip-intro intervals come from chapter titles, and the skip button no longer flickers or resets. @skoruppa
+- [upstream] Simkl and MDBList playback tracking no longer spikes CPU and memory during scrobbles. @halibiram
+- [upstream] Plugin sync runs after add-ons and watch progress load, pinned to the profile that started it. @halibiram
+- [upstream] The modern home no longer recomposes entirely when hero enrichment arrives. @oleglucic
+- [upstream] Posters load when a DNS VPN is the active network. @tharun634
+- [upstream] The player dims controls on HDR video, supports Bluetooth media keys on mpv, and releases the decoder in the background. @kernexshadow @kram00n @oleglucic
+- [upstream] Stream audio delay is scoped to the audio language, and player badges detect codecs more reliably. @qwertyuiop8899 @skoruppa
+- [upstream] Fixes for live-stream resume, episode autoplay, USB audio tunneling, mpv HTTP retries, MKV tracks and trailer black screens. @NivinCNC @oathzed @kernexshadow @oleglucic
+- [upstream] Debrid language detection, SDH stripping, Jellyfin lookups and focus restoration across add-on and settings screens are fixed. @kernexshadow @ysosrs123 @oathzed
+- [upstream] Screen-reader labels, RTL formatting fixes, and translation updates for Hebrew, French, Turkish, Greek, Vietnamese, Slovak and Bulgarian. @thebetterfarhan @haveAnIssue @SK-Gits @halibiram @nosvasedis @blueocean2308 @mmsw91 @viiktr
+
+### Kept lean for Lite
+- Upstream's indexed Simkl lookups replace Lite's own anime-movie precompute, and the diagnostics report uses the same index.
+- Low-memory devices keep skipping poster revalidation while gaining upstream's DNS-VPN connectivity fix.
 
 ## v2.3.1-lite — 2026-10-22
 
