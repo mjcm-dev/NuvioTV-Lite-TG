@@ -11,6 +11,5 @@ jobs:
     steps:
       - name: Ping Supabase REST API
         env:
-          SB_URL: ${{ secrets.SUPABASE_URL }}
           SB_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
-        run: curl --fail-with-body -sS "$SB_URL/rest/v1/_keepalive?select=id" -H "apikey:$SB_KEY" -H "Authorization:Bearer $SB_KEY"
+        run: curl --fail-with-body -sS "https://dcprixvsvnnuynyyyuah.supabase.co/rest/v1/_keepalive?select=id" -H "apikey:$SB_KEY" -H "Authorization:Bearer $SB_KEY"
