@@ -10,14 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping Supabase REST API
-        run: |
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
-            "${{ secrets.SUPABASE_URL }}/rest/v1/_keepalive?select=id" \
-            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}")
-
-          echo "HTTP Status: $RESPONSE"
-          if [ "$RESPONSE" -ne 200 ]; then
-            echo "Error: Supabase no respondió con 200 OK"
-            exit 1
-          fi
+        env:
+          SB_URL: ${{ secrets.SUPABASE_URL }}
+          SB_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: curl --fail-with-body -sS "$SB_URL/rest/v1/_keepalive?select=id" -H "apikey:$SB_KEY" -H "Authorization:Bearer $SB_KEY"
